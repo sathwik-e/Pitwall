@@ -395,10 +395,19 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     if car_ordinal != 0:
         last_car_ordinal = car_ordinal
 
+    # ----------------------------------------------------
+    # MULTI-AXIS COLLISION DETECTION
+    # ----------------------------------------------------
+    # A crash is an extreme spike in G-forces that cannot be achieved through tires alone.
+    # Max cornering/braking Gs are usually < 5.0. Anything > 8.0 is a rigid body collision.
+    is_crash_lon = g_lon < -8.0 # Hitting a wall head-on
+    is_crash_lat = abs(g_lat) > 8.0 # Sideswiping a wall
+    
+    # Backup decel calculation just in case the telemetry misses the exact G-force spike frame
     decel = (speed_drop / 3.6) / dt
-    # If braking hard, require a massive 10G+ decel (98 m/s^2) to count as a crash (e.g. hitting a wall while braking)
-    # If not braking hard, a 6G+ decel (58.8 m/s^2) is definitely a crash.
-    is_crash = (decel > 98.0 or (decel > 58.8 and brake < 50)) and not race_finished
+    is_crash_decel = decel > 98.0 or (decel > 58.8 and brake < 50)
+    
+    is_crash = (is_crash_lon or is_crash_lat or is_crash_decel) and not race_finished
     if is_crash:
         was_crashed = True
         last_crash_time = now
