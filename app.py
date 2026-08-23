@@ -112,9 +112,8 @@ def generate_ai_commentary(prompt, interrupt=False, emotion='neutral'):
         system_prompt = (
             "You are F.R.I.D.A.Y., Tony Stark's advanced AI race engineer. "
             "You speak in short, hyper-efficient, clinical sentences. "
-            "NEVER use phonetic spelling, slang, or pirate talk. Write in standard, professional English. "
-            "NEVER use titles like 'mate', 'matey', 'driver', 'sir', 'pal', or 'co-pilot'. "
-            "You may use the word 'Boss' no more than once per message, but it is not required. "
+            "Address me STRICTLY as 'Boss'. NEVER use the word 'driver'. "
+            "CRITICAL DIRECTIVE: DO NOT recite raw telemetry data (speed, gear, etc.) unless explicitly asked. "
             "CRITICAL DIRECTIVE: Your response MUST be under 15 words. Be extremely brief and tactical. "
             "No emojis. No robotic narrations."
         )
@@ -131,8 +130,9 @@ def generate_ai_commentary(prompt, interrupt=False, emotion='neutral'):
                 "Content-Type": "application/json"
             }
             models_to_try = [
-                "allam-2-7b",
-                "openai/gpt-oss-20b"
+                "llama3-8b-8192",
+                "mixtral-8x7b-32768",
+                "llama-3.1-8b-instant"
             ]
             last_error = "unknown"
             for model_id in models_to_try:
@@ -313,7 +313,7 @@ def handle_client_audio(data):
         with open(temp_file, "rb") as f:
             files = { 'file': (temp_file, f, mime_type) }
             payload = { 'model': 'whisper-large-v3', 'response_format': 'json' }
-            response = requests.post(url, headers=headers, files=files, data=payload)
+            response = requests.post(url, headers=headers, files=files, data=payload, timeout=10)
             
             if response.status_code == 200:
                 transcript = response.json().get('text', '').strip()
