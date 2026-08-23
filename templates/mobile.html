@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>F.R.I.D.A.Y. // Mobile Racing HUD</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}" />
+</head>
+<body>
+  
+  <!-- ============================== TOP STATUS BAR ============================== -->
+  <header class="mobile-top-bar">
+    <div class="brand">
+      <span class="brand-dot" id="connDot"></span>
+      <span class="brand-text">F.R.I.D.A.Y.</span>
+    </div>
+
+    <!-- AI Voice Comms Toggle -->
+    <div class="mobile-toggles">
+      <span id="micStatusLabel" class="hud-label">MIC (USE PC)</span>
+      <div style="display: flex; gap: 8px; align-items: center; margin-left: 10px;">
+        <span class="hud-label">AI AUDIO</span>
+        <label class="switch">
+          <input type="checkbox" id="commToggle">
+          <span class="slider round"></span>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================== MAIN HORIZONTAL HUD ============================== -->
+  <main class="mobile-hud-viewport" id="mobileHud">
+    
+    <!-- LEFT PANEL: Laps -->
+    <div class="mobile-panel left-panel">
+      <div class="stat-group">
+        <span class="stat-label">POSITION</span>
+        <span class="stat-val-xl val-cyan" id="posVal">--</span>
+      </div>
+      <div class="stat-group" style="margin-top: 15px;">
+        <span class="stat-label">LAP TIME</span>
+        <span class="stat-val-md val-gold" id="currentLapVal">--:--.---</span>
+      </div>
+      <div class="stat-group">
+        <span class="stat-label">BEST LAP</span>
+        <span class="stat-val-sm val-cyan" id="bestLapVal">--:--.---</span>
+      </div>
+    </div>
+
+    <!-- CENTER PANEL: Gear & Speed -->
+    <div class="mobile-panel center-panel">
+      <!-- RPM Bar -->
+      <div class="rpm-bar-container">
+        <div class="rpm-bar-fill" id="rpmMobileFill"></div>
+      </div>
+      
+      <div class="center-metrics">
+        <div class="gear-hero" id="gearVal">N</div>
+        
+        <div class="speed-group">
+          <span class="speed-hero" id="speedVal">0</span>
+          <span class="speed-label">KM/H</span>
+        </div>
+      </div>
+      
+      <div class="rpm-text-group">
+        <span class="stat-label">RPM</span>
+        <span class="stat-val-md" id="rpmVal">0</span>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Essential Tyres / G-Force (Simplified) -->
+    <div class="mobile-panel right-panel">
+      <div class="fp-box">
+        <div class="fp-title">G-FORCE</div>
+        <div class="fp-inline"><span class="val-dim">LAT:</span> <span class="val-cyan" id="gForceVal">0.0G</span></div>
+        <div class="fp-inline"><span class="val-dim">LON:</span> <span class="val-cyan" id="gLonVal">0.0G</span></div>
+      </div>
+      
+      <div class="fp-box" style="margin-top: 20px;">
+        <div class="fp-title">RACE STATUS</div>
+        <div class="fp-inline"><span class="val-cyan" id="raceStatusVal">STANDBY</span></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ============================== PORTRAIT WARNING OVERLAY ============================== -->
+  <div class="portrait-warning" id="portraitWarning">
+    <div class="warning-box">
+      <div style="font-size: 40px; margin-bottom: 15px;">📱🔄</div>
+      <h2>PLEASE ROTATE DEVICE</h2>
+      <p>This racing HUD is designed specifically for landscape orientation.</p>
+    </div>
+  </div>
+
+  <!-- Setup Info overlay -->
+  <div id="setupGuide" class="setup-overlay">
+    <div class="setup-box">
+      <h2 style="color: #00f3ff; margin-bottom: 10px;">MOBILE HUD READY</h2>
+      <p style="margin-bottom: 15px; color: #fff;">1. Toggle the <b>AI AUDIO</b> switch (top right) off and on to unlock sound permissions.</p>
+      <p style="margin-bottom: 25px; color: #aaa;">2. To talk to F.R.I.D.A.Y., you must use your PC's microphone. Open <code>http://localhost:6900</code> on your computer.</p>
+      <button onclick="document.getElementById('setupGuide').style.display='none'" class="ptt-btn">DISMISS</button>
+    </div>
+  </div>
+
+  <!-- Socket.io and Physics Scripts -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <audio id="aiAudio" style="display:none;"></audio>
+  <script src="{{ url_for('static', filename='physics.js') }}"></script>
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+  
+  <script>
+    // Custom mobile logic for RPM bar since we aren't using the SVG ring
+    const socket_mobile = io();
+    socket_mobile.on('telemetry_update', function(data) {
+        const rpmBar = document.getElementById('rpmMobileFill');
+        if (rpmBar && data.current_rpm && data.max_rpm) {
+            let pct = (data.current_rpm / data.max_rpm) * 100;
+            pct = Math.min(Math.max(pct, 0), 100);
+            rpmBar.style.width = pct + '%';
+            
+            if (pct > 95) {
+                rpmBar.style.background = '#ff3366'; // Redline
+                rpmBar.style.boxShadow = '0 0 15px #ff3366';
+            } else if (pct > 80) {
+                rpmBar.style.background = '#ffb800'; // Optimal shift
+                rpmBar.style.boxShadow = '0 0 15px #ffb800';
+            } else {
+                rpmBar.style.background = '#00f3ff'; // Normal
+                rpmBar.style.boxShadow = '0 0 10px #00f3ff';
+            }
+        }
+    });
+
+    // Check orientation
+    function checkOrientation() {
+      if (window.innerHeight > window.innerWidth) {
+        document.getElementById('portraitWarning').style.display = 'flex';
+        document.getElementById('mobileHud').style.display = 'none';
+      } else {
+        document.getElementById('portraitWarning').style.display = 'none';
+        document.getElementById('mobileHud').style.display = 'flex';
+      }
+    }
+    window.addEventListener('resize', checkOrientation);
+    checkOrientation();
+  </script>
+</body>
+</html>

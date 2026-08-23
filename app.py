@@ -742,7 +742,13 @@ def index():
     if not APP_CONFIG.get("groq_key") and not APP_CONFIG.get("setup_skipped"):
         return redirect(url_for('setup'))
     needs_setup = not bool(APP_CONFIG.get("groq_key"))
-    return render_template('index.html', udp_port=UDP_PORT, local_ip=get_local_ip(), needs_setup=needs_setup)
+    
+    # Detect mobile devices to serve the horizontally-optimized mobile UI
+    user_agent = request.headers.get('User-Agent', '').lower()
+    is_mobile = any(mobile_token in user_agent for mobile_token in ['mobi', 'android', 'iphone', 'ipad', 'webos'])
+    
+    template = 'mobile.html' if is_mobile else 'index.html'
+    return render_template(template, udp_port=UDP_PORT, local_ip=get_local_ip(), needs_setup=needs_setup)
 
 @app.route('/skip_setup')
 def skip_setup():
