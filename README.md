@@ -23,21 +23,30 @@
 - **Dual-Display Setup Required:** Because Forza is typically played in full-screen mode, you will need either a **second monitor** or a **second device** (like a phone, tablet, or a separate laptop) to view the Pitwall dashboard while you race. 
   - *If using a second device:* Ensure it is connected to the same Wi-Fi network. Find your main PC's local IP address (e.g., `192.168.1.100`) and access the dashboard from the second device's browser at `http://<YOUR_IP>:6900`.
 
-## Setup Instructions (Windows - Primary)
+## Setup Instructions
 
-### 1. Prerequisites
+### Option 1: Using the Pre-Built Release (Easiest)
+If you just want to run the app on Windows without touching any code:
+1. Go to the [Releases](https://github.com/sathwik-e/Pitwall/releases) page and download `Pitwall.zip`.
+2. Extract the folder and double-click `Pitwall_Live_Telemetry.exe`. 
+*(Note: You do **NOT** need Python installed for this!)*
+3. Skip down to **Application Configuration** below.
+
+### Option 2: Running from Source Code (For Developers)
+
+#### 1. Prerequisites
 - Install **Python 3.10+**. Ensure you check the box to "Add Python to PATH" during installation.
 - Get a free API Key from [Groq](https://console.groq.com/keys) (required for the F.R.I.D.A.Y. AI).
 
-### 2. Installation & Building
+#### 2. Installation & Building
 Clone this repository to your local machine:
 ```bash
 git clone https://github.com/sathwik-e/Pitwall.git
 cd Pitwall
 ```
-Double-click `build.bat`. This script will automatically install all dependencies and compile the app into a standalone `Pitwall_Live_Telemetry.exe` that runs silently without a terminal. 
+Double-click `build.bat`. This script will automatically install all dependencies and compile the app into a standalone `.exe` that runs silently without a terminal. 
 
-### 3. Application Configuration
+### Application Configuration
 1. Launch the compiled `Pitwall_Live_Telemetry.exe`.
 2. Click the **⚙️ Gear Icon** in the top right of the dashboard.
 3. Enter your **Groq API Key** and save.
