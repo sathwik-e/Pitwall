@@ -24,29 +24,36 @@ socket.on('disconnect', () => {
 let telemetryReceived = false;
 let audioUnlocked = false;
 
-document.getElementById('commToggle').addEventListener('change', (e) => {
-    if (e.target.checked) {
-        // Unlock Audio Context on Windows when AI is enabled
-        const audioEl = document.getElementById('aiAudio');
-        if (audioEl && !audioUnlocked) {
-            audioEl.play().catch(err => {}); // Silent play to unlock
-            audioEl.pause();
-            audioUnlocked = true;
+const commToggleEl = document.getElementById('commToggle');
+if (commToggleEl) {
+    commToggleEl.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            // Unlock Audio Context on Windows when AI is enabled
+            const audioEl = document.getElementById('aiAudio');
+            if (audioEl && !audioUnlocked) {
+                audioEl.play().catch(err => {}); // Silent play to unlock
+                audioEl.pause();
+                audioUnlocked = true;
+            }
         }
-    }
-});
-
-document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-    const key = document.getElementById('groqKeyInput').value;
-    fetch('/api/settings', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({groq_key: key})
-    }).then(() => {
-        document.getElementById('settingsModal').style.display = 'none';
-        document.getElementById('groqKeyInput').value = '';
     });
-});
+}
+
+const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener('click', () => {
+        const key = document.getElementById('groqKeyInput').value;
+        fetch('/api/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({groq_key: key})
+        }).then(() => {
+            const modal = document.getElementById('settingsModal');
+            if (modal) modal.style.display = 'none';
+            document.getElementById('groqKeyInput').value = '';
+        });
+    });
+}
 
 // Telemetry Listener
 socket.on('telemetry_update', (data) => {
