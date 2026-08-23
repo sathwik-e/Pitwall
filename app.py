@@ -110,13 +110,11 @@ def generate_ai_commentary(prompt, interrupt=False, emotion='neutral'):
             socketio.emit('stop_audio')
             
         system_prompt = (
-            "You are F.R.I.D.A.Y., Tony Stark's advanced AI race engineer. "
-            "You speak in short, hyper-efficient, clinical sentences. "
-            "Address me STRICTLY as 'Boss'. NEVER use the word 'driver'. "
-            "CRITICAL DIRECTIVE: DO NOT recite raw telemetry data (speed, gear, etc.) unless explicitly asked. "
-            "CRITICAL DIRECTIVE: DO NOT introduce yourself or say 'AI Strategy'. Just answer directly. "
-            "CRITICAL DIRECTIVE: Your response MUST be under 15 words. Be extremely brief and tactical. "
-            "No emojis. No robotic narrations."
+            "You are F.R.I.D.A.Y., an elite race engineer. Follow these rules STRICTLY:\n"
+            "1. Always call the user 'Boss'.\n"
+            "2. Respond with exactly ONE short sentence. Maximum 12 words.\n"
+            "3. Do not repeat telemetry numbers (like 0 kmh or gear 1) back to the user.\n"
+            "4. Never say 'AI', 'Engineer', 'Understood', or 'Acknowledged'."
         )
         
         temp_messages = chat_history + [{"role": "user", "content": prompt}]
@@ -322,8 +320,8 @@ def handle_client_audio(data):
                 ignore_list = ["", "you", "silence.", "silence", "thanks for watching.", "thanks for watching", "bye.", "."]
                 if transcript and transcript.lower() not in ignore_list and len(transcript) > 2:
                     print(f"[Voice] Boss: {transcript}")
-                    car_context = f"[Game: {current_telemetry.get('game_id', 'Unknown')} | Speed: {current_telemetry.get('speed', 0)} km/h, Gear: {current_telemetry.get('gear', 'N')}, Throttle: {current_telemetry.get('throttle_pct', 0):.0f}%]"
-                    prompt = f"[User asked over radio]: {transcript}\n\n{car_context}"
+                    car_context = f"[Internal Telemetry - DO NOT READ ALOUD: Speed {current_telemetry.get('speed', 0)}, Gear {current_telemetry.get('gear', 'N')}, Throttle {current_telemetry.get('throttle_pct', 0):.0f}%]"
+                    prompt = f"Radio from Boss: '{transcript}'\n{car_context}"
                     threading.Thread(target=generate_ai_commentary, args=(prompt, True, 'neutral'), daemon=True).start()
             else:
                 print(f"[Audio] Whisper Error: {response.status_code} - {response.text}")
