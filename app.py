@@ -313,7 +313,7 @@ def handle_client_audio(data):
                 # Ignore empty transcripts or Whisper's common silence hallucinations
                 ignore_list = ["", "you", "silence.", "silence", "thanks for watching.", "thanks for watching", "bye.", "."]
                 if transcript and transcript.lower() not in ignore_list and len(transcript) > 2:
-                    print(f"[Driver] Driver: {transcript}")
+                    print(f"[Voice] Boss: {transcript}")
                     car_context = f"[Game: {current_telemetry.get('game_id', 'Unknown')} | Speed: {current_telemetry.get('speed', 0)} km/h, Gear: {current_telemetry.get('gear', 'N')}, Throttle: {current_telemetry.get('throttle_pct', 0):.0f}%]"
                     prompt = f"[User asked over radio]: {transcript}\n\n{car_context}"
                     threading.Thread(target=generate_ai_commentary, args=(prompt, False, 'neutral'), daemon=True).start()
@@ -369,11 +369,11 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         final_pos = pos if pos > 0 else last_pos
         prompt = None
         if final_pos == 1:
-            prompt = "The driver just WON the race in P1! Scream with absolute joy, swear excitedly, and celebrate this massive victory!"
+            prompt = "The Boss just WON the race in P1! Scream with absolute joy, swear excitedly, and celebrate this massive victory!"
         elif final_pos in [2, 3]:
-            prompt = f"The driver just finished the race on the podium in P{final_pos}! React with huge excitement and congratulate them on a great podium finish!"
+            prompt = f"The Boss just finished the race on the podium in P{final_pos}! React with huge excitement and congratulate them on a great podium finish!"
         elif final_pos > 3:
-            prompt = f"The driver finished the race in P{final_pos}. Give them an encouraging message and tell them you'll get 'em next time."
+            prompt = f"The Boss finished the race in P{final_pos}. Give them an encouraging message and tell them you'll get 'em next time."
             
         if prompt:
             threading.Thread(target=generate_ai_commentary, args=(prompt, True, 'happy'), daemon=True).start()
@@ -389,10 +389,10 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
                 prompt = None
                 emotion = 'neutral'
                 if pos < last_race_pos:
-                    prompt = f"The driver just overtook an opponent and moved up into P{pos}. Calmly confirm the overtake and instruct them to maintain pace."
+                    prompt = f"The Boss just overtook an opponent and moved up into P{pos}. Calmly confirm the overtake and instruct them to maintain pace."
                     emotion = 'happy'
                 else:
-                    prompt = f"The driver just got overtaken and dropped down to P{pos}. Calmly instruct them to stay focused and manage the gap."
+                    prompt = f"The Boss just got overtaken and dropped down to P{pos}. Calmly instruct them to stay focused and manage the gap."
                     emotion = 'angry'
                 
                 threading.Thread(target=generate_ai_commentary, args=(prompt, False, emotion), daemon=True).start()
@@ -407,7 +407,7 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     # ----------------------------------------------------
     if car_ordinal != last_car_ordinal and last_car_ordinal != 0 and car_ordinal != 0:
         if speed < 10: # Only trigger when stationary/in garage
-            prompt = "The driver just hopped into a new car. Acknowledge the switch and hype them up for the next session."
+            prompt = "The Boss just hopped into a new car. Acknowledge the switch and hype them up for the next session."
             threading.Thread(target=generate_ai_commentary, args=(prompt, False, 'happy'), daemon=True).start()
             last_ai_time = now
     
@@ -440,7 +440,7 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         if was_crashed and best_0_100_time < 900:
             if time_taken > (best_0_100_time * 1.3): # 30% slower 0-100
                 if not damage_inferred or (now - last_damage_report_time > 120):
-                    prompt = f"The car's 0-100 time was {time_taken:.1f}s, normally it's {best_0_100_time:.1f}s. Instruct the driver to box due to severe drivetrain damage."
+                    prompt = f"The car's 0-100 time was {time_taken:.1f}s, normally it's {best_0_100_time:.1f}s. Instruct the Boss to box due to severe drivetrain damage."
                     emotion = 'angry'
                     damage_inferred = True
                     last_damage_report_time = now
@@ -454,7 +454,7 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     if was_crashed and speed > 60 and throttle > 50:
         if abs(steer) < 5 and abs(g_lat) > 0.4:
             if not damage_inferred or (now - last_damage_report_time > 120):
-                prompt = "The driver is steering straight but the car is pulling heavily. The suspension is completely destroyed! Tell them to box."
+                prompt = "The Boss is steering straight but the car is pulling heavily. The suspension is completely destroyed! Tell them to box."
                 emotion = 'shocked'
                 damage_inferred = True
                 last_damage_report_time = now
@@ -469,7 +469,7 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         if throttle > 90 and gear >= 3 and speed > 50:
             if speed < (baseline_max_speed * 0.85):
                 if not damage_inferred or (now - last_damage_report_time > 120):
-                    prompt = "The car took heavy damage, top speed is significantly down. Instruct the driver to box for repairs immediately."
+                    prompt = "The car took heavy damage, top speed is significantly down. Instruct the Boss to box for repairs immediately."
                     emotion = 'angry' # using the alert/angry face
                     damage_inferred = True
                     last_damage_report_time = now
@@ -781,7 +781,7 @@ def setup():
 def handle_driver_radio(data):
     text = data.get('text', '')
     if text:
-        prompt = f"The driver (Shanks) says over the radio: '{text}'. Respond as their race engineer."
+        prompt = f"The Boss (Shanks) says over the radio: '{text}'. Respond as their race engineer."
         threading.Thread(target=generate_ai_commentary, args=(prompt,), daemon=True).start()
 
 import webview
