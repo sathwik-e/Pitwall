@@ -324,7 +324,7 @@ def handle_client_audio(data):
                     print(f"[Voice] Boss: {transcript}")
                     car_context = f"[Game: {current_telemetry.get('game_id', 'Unknown')} | Speed: {current_telemetry.get('speed', 0)} km/h, Gear: {current_telemetry.get('gear', 'N')}, Throttle: {current_telemetry.get('throttle_pct', 0):.0f}%]"
                     prompt = f"[User asked over radio]: {transcript}\n\n{car_context}"
-                    threading.Thread(target=generate_ai_commentary, args=(prompt, False, 'neutral'), daemon=True).start()
+                    threading.Thread(target=generate_ai_commentary, args=(prompt, True, 'neutral'), daemon=True).start()
             else:
                 print(f"[Audio] Whisper Error: {response.status_code} - {response.text}")
                 socketio.emit('header_alert', {'msg': f"Mic Error: {response.status_code}"})
@@ -387,49 +387,29 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
             
         if prompt:
             threading.Thread(target=generate_ai_commentary, args=(prompt, True, 'happy'), daemon=True).start()
-            last_ai_time = now
-        return
-
+             # ----------------------------------------------------
+    # CAR SWAP DETECTION (High Priority)
     # ----------------------------------------------------
-    # MID PRIORITY (30s Cooldown) - Position Tracking
-    # ----------------------------------------------------
-    if is_race_on and pos > 0:
-        if last_race_pos > 0 and pos != last_race_pos:
-            if now - last_pos_time > 30: # 30s cooldown for overtakes to avoid spam
-                prompt = None
-                emotion = 'neutral'
-                if pos < last_race_pos:
-                    prompt = f"The Boss just overtook an opponent and moved up into P{pos}. Calmly confirm the overtake and instruct them to maintain pace."
-                    emotion = 'happy'
-                else:
-                    prompt = f"The Boss just got overtaken and dropped down to P{pos}. Calmly instruct them to stay focused and manage the gap."
-                    emotion = 'angry'
-                
-                threading.Thread(target=generate_ai_commentary, args=(prompt, False, emotion), daemon=True).start()
-                last_pos_time = now
-                last_ai_time = now
-        last_race_pos = pos
-    else:
-        last_race_pos = -1
-
-    # ----------------------------------------------------
-    # CAR SWAP DETECTION
-    # ----------------------------------------------------
+    car_swapped = False
     if car_ordinal != last_car_ordinal and last_car_ordinal != 0 and car_ordinal != 0:
         if speed < 10: # Only trigger when stationary/in garage
-            prompt = "The Boss just hopped into a new car. Acknowledge the switch and hype them up for the next session."
-            threading.Thread(target=generate_ai_commentary, args=(prompt, False, 'happy'), daemon=True).start()
-            last_ai_time = now
-    
+            car_swapped = True
     if car_ordinal != 0:
         last_car_ordinal = car_ordinal
 
     decel = (speed_drop / 3.6) / dt
     is_crash = decel > 58.8 and not race_finished
-    
+    if is_crash:
+        was_crashed = True
+        last_crash_time = now
+
     # ----------------------------------------------------
     # INFERRED DAMAGE PIPELINE
     # ----------------------------------------------------
+    is_drivetrain_damaged = False
+    is_suspension_damaged = False
+    is_aero_damaged = False
+    
     if not was_crashed and not damage_inferred:
         if speed > baseline_max_speed: baseline_max_speed = speed
         if abs(g_lat) > baseline_max_g_lat: baseline_max_g_lat = abs(g_lat)
@@ -441,56 +421,40 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     elif speed >= 100 and is_accelerating:
         time_taken = now - accel_start_time
         is_accelerating = False
-        
-        # Record baseline 0-100 time if healthy
         if time_taken < best_0_100_time and not was_crashed:
             best_0_100_time = time_taken
-            
-        # Check for damage if they crashed and have a baseline
         if was_crashed and best_0_100_time < 900:
             if time_taken > (best_0_100_time * 1.3): # 30% slower 0-100
                 if not damage_inferred or (now - last_damage_report_time > 120):
-                    prompt = f"The car's 0-100 time was {time_taken:.1f}s, normally it's {best_0_100_time:.1f}s. Instruct the Boss to box due to severe drivetrain damage."
-                    emotion = 'angry'
+                    is_drivetrain_damaged = True
                     damage_inferred = True
                     last_damage_report_time = now
-                    threading.Thread(target=generate_ai_commentary, args=(prompt, False, emotion), daemon=True).start()
-                    last_ai_time = now
                     
     elif speed > 10 and throttle < 50 and is_accelerating:
-        is_accelerating = False # Aborted launch
+        is_accelerating = False
         
     # Steering Damage Tracking
     if was_crashed and speed > 60 and throttle > 50:
         if abs(steer) < 5 and abs(g_lat) > 0.4:
             if not damage_inferred or (now - last_damage_report_time > 120):
-                prompt = "The Boss is steering straight but the car is pulling heavily. The suspension is completely destroyed! Tell them to box."
-                emotion = 'shocked'
+                is_suspension_damaged = True
                 damage_inferred = True
                 last_damage_report_time = now
-                threading.Thread(target=generate_ai_commentary, args=(prompt, False, emotion), daemon=True).start()
-                last_ai_time = now
-        
-    if is_crash:
-        was_crashed = True
-        last_crash_time = now
-        
+                
     if was_crashed and (now - last_crash_time > 15) and baseline_max_speed > 100:
         if throttle > 90 and gear >= 3 and speed > 50:
             if speed < (baseline_max_speed * 0.85):
                 if not damage_inferred or (now - last_damage_report_time > 120):
-                    prompt = "The car took heavy damage, top speed is significantly down. Instruct the Boss to box for repairs immediately."
-                    emotion = 'angry' # using the alert/angry face
+                    is_aero_damaged = True
                     damage_inferred = True
                     last_damage_report_time = now
-                    threading.Thread(target=generate_ai_commentary, args=(prompt, False, emotion), daemon=True).start()
-                    last_ai_time = now
+
     is_ramming = speed_drop > 20 and speed_drop <= 50 and brake < 10 and speed > 30 and not race_finished
     is_spin = yaw_rate > 3.0 and speed > 40 and not is_crash and not race_finished
     is_drifting = yaw_rate > 1.0 and yaw_rate <= 3.0 and speed > 50 and not is_crash and brake < 50 and not race_finished
     is_turning = abs(g_lat) > 1.2 and yaw_rate > 0.2 and yaw_rate <= 1.0 and speed > 60 and not race_finished
     is_donut = yaw_rate > 2.0 and speed < 40 and throttle > 50 and not is_crash and not race_finished
-    
+
     # ----------------------------------------------------
     # MANUAL TRANSMISSION TRACKING
     # ----------------------------------------------------
@@ -499,12 +463,9 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     is_money_shift = False
     is_bad_launch = False
     
-    if max_rpm > 1000: # Ensure valid telemetry
-        # Money shift logic (RPM spiked past redline while decelerating or downshifting)
+    if max_rpm > 1000:
         if rpm > max_rpm * 0.99 and speed_drop > 0.5 and gear < 5:
             is_money_shift = True
-                
-        # Rev Limiter logic
         if rpm > (max_rpm * 0.97) and throttle > 80:
             if rev_limit_start_time == 0:
                 rev_limit_start_time = now
@@ -513,7 +474,6 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         else:
             rev_limit_start_time = 0
             
-        # Bogging logic
         if rpm < (max_rpm * 0.35) and throttle > 80 and gear >= 3 and speed > 20:
             if bogging_start_time == 0:
                 bogging_start_time = now
@@ -522,7 +482,6 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         else:
             bogging_start_time = 0
             
-        # Bad Launch (Starting in wrong gear)
         if speed < 15 and gear >= 2 and throttle > 80:
             if bad_launch_start_time == 0:
                 bad_launch_start_time = now
@@ -530,9 +489,9 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
                 is_bad_launch = True
         else:
             bad_launch_start_time = 0
-    
+
     # SMART COOLDOWN TIERS
-    is_critical = is_crash or is_ramming or is_jumping
+    is_critical = car_swapped or is_crash or is_ramming or is_jumping or is_drivetrain_damaged or is_suspension_damaged or is_aero_damaged
     is_warning = is_spin or is_bouncing_limiter or is_bogging or is_money_shift or is_bad_launch
     is_chatter = is_drifting or is_donut or is_turning
 
@@ -551,7 +510,20 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     prompt = None
     emotion = 'neutral'
     
-    if is_jumping:
+    # Priority logic (if multiple things happened, only report the worst one)
+    if is_drivetrain_damaged:
+        prompt = f"The car's 0-100 time was {time_taken:.1f}s, normally it's {best_0_100_time:.1f}s. Instruct the Boss to box due to severe drivetrain damage."
+        emotion = 'angry'
+    elif is_suspension_damaged:
+        prompt = "The Boss is steering straight but the car is pulling heavily. The suspension is completely destroyed! Tell them to box."
+        emotion = 'shocked'
+    elif is_aero_damaged:
+        prompt = "The car took heavy damage, top speed is significantly down. Instruct the Boss to box for repairs immediately."
+        emotion = 'angry'
+    elif car_swapped:
+        prompt = "The Boss just hopped into a new car. Acknowledge the switch and hype them up for the next session."
+        emotion = 'happy'
+    elif is_jumping:
         prompt = f"Car is airborne at {speed} km/h! React with excitement about the massive jump."
         emotion = 'happy'
     elif is_money_shift:
@@ -570,7 +542,6 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         last_bogging_joke = now
         emotion = 'angry'
     elif is_crash:
-        was_crashed = True
         emotion = 'shocked'
         prompt = f"Crashed heavily at {last_speed} km/h. Sarcastic tip about braking."
     elif is_ramming:
@@ -599,8 +570,8 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     elif abs(g_lat) > 2.5:
         prompt = f"Massive {abs(g_lat):.1f} lateral Gs in corner."
         emotion = 'shocked'
-    # last_speed was moved to the top of the function
-
+    
+    last_speed = speed
     if pos > 0: last_pos = pos
     if gear > 0: last_gear = gear
     

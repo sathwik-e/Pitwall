@@ -848,6 +848,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Volume threshold (adjust if needed, usually background noise is < 5)
                             if (average > 10) {
                                 hasSpokenInChunk = true;
+                                // Local interrupt: stop F.R.I.D.A.Y. from talking over the user
+                                const audioEl = document.getElementById('aiAudio');
+                                if (audioEl && !audioEl.paused) {
+                                    audioEl.pause();
+                                    audioEl.currentTime = 0;
+                                    subtitleContainer.style.display = 'none';
+                                }
                             }
                         }
                     }, 100);
