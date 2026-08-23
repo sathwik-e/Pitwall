@@ -18,35 +18,31 @@
 - **Frontend**: HTML5 Canvas, Vanilla CSS, JS WebSockets
 - **Optimization**: The UI rendering loop is highly optimized. The complex wireframe car chassis is rendered exactly *once* to an off-screen canvas buffer, reducing GPU/CPU load to near-zero while maintaining a dynamic 60FPS feel for rolling wheels and active suspension.
 
-## Setup Instructions
+## Limitations
+
+- **Dual-Display Setup Required:** Because Forza is typically played in full-screen mode, you will need either a **second monitor** or a **second device** (like a phone, tablet, or a separate laptop) to view the Pitwall dashboard while you race. 
+  - *If using a second device:* Ensure it is connected to the same Wi-Fi network. Find your main PC's local IP address (e.g., `192.168.1.100`) and access the dashboard from the second device's browser at `http://<YOUR_IP>:6900`.
+
+## Setup Instructions (Windows - Primary)
 
 ### 1. Prerequisites
 - Install **Python 3.10+**. Ensure you check the box to "Add Python to PATH" during installation.
 - Get a free API Key from [Groq](https://console.groq.com/keys) (required for the F.R.I.D.A.Y. AI).
 
-### 2. Installation
+### 2. Installation & Building
 Clone this repository to your local machine:
 ```bash
 git clone https://github.com/sathwik-e/Pitwall.git
 cd Pitwall
 ```
-Install the required dependencies:
-```bash
-pip install -r requirements.txt
-```
+Double-click `build.bat`. This script will automatically install all dependencies and compile the app into a standalone `Pitwall_Live_Telemetry.exe` that runs silently without a terminal. 
 
-### 3. Running the App
-Start the telemetry server and UI:
-```bash
-python3 app.py
-```
-*(Alternatively, Windows users can double-click `build.bat` to compile everything into a standalone `Pitwall_Live_Telemetry.exe` that runs without a terminal).*
+### 3. Application Configuration
+1. Launch the compiled `Pitwall_Live_Telemetry.exe`.
+2. Click the **⚙️ Gear Icon** in the top right of the dashboard.
+3. Enter your **Groq API Key** and save.
 
-### 4. Application Configuration
-1. Once the app launches, click the **⚙️ Gear Icon** in the top right of the dashboard.
-2. Enter your **Groq API Key** and save.
-
-### 5. Forza Game Configuration
+### 4. Forza Game Configuration
 You must tell Forza to broadcast telemetry data to Pitwall.
 1. Launch Forza Horizon 4, 5, or Forza Motorsport.
 2. Go to **Settings -> HUD and Gameplay**.
@@ -54,7 +50,14 @@ You must tell Forza to broadcast telemetry data to Pitwall.
 4. Set **Data Out IP Address** to `127.0.0.1`.
 5. Set **Data Out IP Port** to `5300`.
 
-*As soon as you unpause the game and start driving, the dashboard will come to life!*
+## Mac OS Setup (Porting)
+
+If you are running Forza on an Xbox or a separate Windows PC on the same network, you can run Pitwall on a Mac to serve as your telemetry screen.
+1. Install Python 3.10+ and run `pip3 install -r requirements.txt`.
+2. Start the telemetry server manually: `python3 app.py`.
+3. Find your Mac's local network IP address (e.g., `192.168.1.50`).
+4. **On your Xbox/Windows PC running Forza**: Go to the Data Out settings and set the **Data Out IP Address** to your Mac's IP address (`192.168.1.50`) instead of `127.0.0.1`. Keep the port at `5300`.
+5. View the dashboard on your Mac at `http://localhost:6900`.
 
 ---
 *Built for absolute performance and immersion on the virtual track.*
