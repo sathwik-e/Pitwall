@@ -275,7 +275,7 @@ def handle_ai_test():
     if APP_CONFIG.get('groq_key', '') == "":
         prompt = "System test. Please say: AI Strategy is offline. Please configure your API key in the settings."
     else:
-        prompt = "System test. Say exactly: AI Strategy is online and connected. I am ready to monitor telemetry."
+        prompt = "System test. Say exactly: F.R.I.D.A.Y. systems online. Telemetry monitoring is active and ready, Boss."
     threading.Thread(target=generate_ai_commentary, args=(prompt, True, 'neutral'), daemon=True).start()
 
 # AI State Tracking
@@ -321,8 +321,8 @@ def handle_client_audio(data):
                 ignore_list = ["", "you", "silence.", "silence", "thanks for watching.", "thanks for watching", "bye.", "."]
                 if transcript and transcript.lower() not in ignore_list and len(transcript) > 2:
                     print(f"[Voice] Boss: {transcript}")
-                    car_context = f"[Internal Telemetry - DO NOT READ ALOUD: Speed {current_telemetry.get('speed', 0)}, Gear {current_telemetry.get('gear', 'N')}, Throttle {current_telemetry.get('throttle_pct', 0):.0f}%]"
-                    prompt = f"Radio from Boss: '{transcript}'\n{car_context}"
+                    car_context = f"(Context for your answer: The car is currently going {current_telemetry.get('speed', 0)} km/h in gear {current_telemetry.get('gear', 'N')} with {current_telemetry.get('throttle_pct', 0):.0f}% throttle applied)"
+                    prompt = f"Radio from Boss: '{transcript}'. {car_context}"
                     threading.Thread(target=generate_ai_commentary, args=(prompt, True, 'neutral'), daemon=True).start()
             else:
                 print(f"[Audio] Whisper Error: {response.status_code} - {response.text}")
