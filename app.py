@@ -111,11 +111,12 @@ def generate_ai_commentary(prompt, interrupt=False, emotion='neutral'):
             
         system_prompt = (
             "You are FRIDAY, an elite race engineer. Follow these rules STRICTLY:\n"
-            "1. You are FRIDAY. Do not refer to FRIDAY in the third person. You are talking directly to me.\n"
-            "2. Always call me 'Boss'.\n"
-            "3. Respond with exactly ONE short sentence. Maximum 12 words.\n"
-            "4. Do not repeat telemetry numbers (like 0 kmh or gear 1) back to me.\n"
-            "5. Never say 'AI', 'Engineer', 'Understood', or 'Acknowledged'."
+            "1. You ARE FRIDAY. Never refer to yourself in the third person. Say 'I' not 'FRIDAY'.\n"
+            "2. There are only two people: you (FRIDAY) and the Boss (the driver). Always address the Boss as 'Boss' using second person ('you', 'your'). NEVER say 'Boss is' or 'Boss's' in third person.\n"
+            "3. Respond with exactly ONE short sentence. Maximum 15 words.\n"
+            "4. Do NOT repeat raw telemetry numbers (speed, gear, RPM) back to the Boss.\n"
+            "5. Never say 'AI', 'Engineer', 'Understood', 'Acknowledged', 'strategy', or 'optimize'.\n"
+            "6. Be natural, witty, and direct. Swear if appropriate. You're a friend, not a robot."
         )
         
         temp_messages = chat_history + [{"role": "user", "content": prompt}]
@@ -197,37 +198,45 @@ def generate_ai_commentary(prompt, interrupt=False, emotion='neutral'):
     tts_text = tts_text.replace("°C", " degrees celsius")
     tts_text = tts_text.replace("°", " degrees")
     
-    print(f"[Audio] AI Engineer: {text}")
+    print(f"[Audio] FRIDAY: {text}")
     
     def synthesize():
         nonlocal tts_text
         
         # ── TIER 1: Edge TTS (Best quality — Irish female neural voice) ──
-        try:
-            temp_path = os.path.join(tempfile.gettempdir(), f"friday_edge_{int(time.time()*1000)}.mp3")
-            
-            async def _edge_speak():
-                communicate = edge_tts.Communicate(tts_text, "en-IE-EmilyNeural")
-                await communicate.save(temp_path)
-            
-            # Create a fresh event loop for this thread (Flask's main loop blocks async)
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(_edge_speak())
-            loop.close()
-            
-            with open(temp_path, 'rb') as f:
-                audio_data = f.read()
-            b64_audio = base64.b64encode(audio_data).decode('utf-8')
-            socketio.emit('play_audio', {'audio': b64_audio, 'text': text, 'emotion': emotion, 'mime': 'audio/mp3'})
-            print("[Audio] Edge TTS (en-IE-EmilyNeural) — Success")
+        # Skip if Edge TTS has been consistently failing this session
+        if not getattr(synthesize, '_edge_disabled', False):
             try:
-                os.remove(temp_path)
-            except:
-                pass
-            return  # Done! Skip fallbacks.
-        except Exception as e:
-            print(f"[Audio] Edge TTS failed ({e}), trying gTTS...")
+                temp_path = os.path.join(tempfile.gettempdir(), f"friday_edge_{int(time.time()*1000)}.mp3")
+                
+                async def _edge_speak():
+                    communicate = edge_tts.Communicate(tts_text, "en-IE-EmilyNeural")
+                    await communicate.save(temp_path)
+                
+                # Create a fresh event loop for this thread (Flask's main loop blocks async)
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(_edge_speak())
+                loop.close()
+                
+                with open(temp_path, 'rb') as f:
+                    audio_data = f.read()
+                b64_audio = base64.b64encode(audio_data).decode('utf-8')
+                socketio.emit('play_audio', {'audio': b64_audio, 'text': text, 'emotion': emotion, 'mime': 'audio/mp3'})
+                print("[Audio] Edge TTS (en-IE-EmilyNeural) — Success")
+                synthesize._edge_fail_count = 0  # Reset on success
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+                return  # Done! Skip fallbacks.
+            except Exception as e:
+                synthesize._edge_fail_count = getattr(synthesize, '_edge_fail_count', 0) + 1
+                if synthesize._edge_fail_count >= 3:
+                    synthesize._edge_disabled = True
+                    print(f"[Audio] Edge TTS failed {synthesize._edge_fail_count}x, disabling for this session. Using gTTS.")
+                else:
+                    print(f"[Audio] Edge TTS failed ({e}), trying gTTS...")
         
         # ── TIER 2: gTTS (Good quality — Irish accent via tld='ie') ──
         try:
@@ -270,12 +279,18 @@ def generate_ai_commentary(prompt, interrupt=False, emotion='neutral'):
             
     threading.Thread(target=synthesize, daemon=True).start()
 
+_greeting_sent = False
+
 @socketio.on('request_ai_test')
 def handle_ai_test():
+    global _greeting_sent
+    if _greeting_sent:
+        return  # Don't spam the greeting on every reconnect
+    _greeting_sent = True
     if APP_CONFIG.get('groq_key', '') == "":
         prompt = "System test. Please say: AI Strategy is offline. Please configure your API key in the settings."
     else:
-        prompt = "System test. Say exactly: FRIDAY systems online. Telemetry monitoring is active and ready, Boss."
+        prompt = "System test. Say exactly: Systems online, ready when you are Boss."
     threading.Thread(target=generate_ai_commentary, args=(prompt, True, 'neutral'), daemon=True).start()
 
 # AI State Tracking
@@ -416,16 +431,13 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     is_crash_lon = g_lon < -20.0 # Hitting a solid wall head-on
     is_crash_lat = abs(g_lat) > 20.0 # Sideswiping a solid wall
     
-    # We completely ignore speed_drop deltas now because UDP network jitter causes dt 
-    # to become incredibly small (e.g. 0.001s), which mathematically explodes the decel value 
-    # and falsely triggers a crash even if you just let off the throttle.
-    is_crash = (is_crash_lon or is_crash_lat) and not race_finished
+    # Minimum speed gate: ignore G-force spikes below 30 km/h.
+    # Low-speed bumps in Forza can spike G-forces but cause zero damage.
+    is_crash = (is_crash_lon or is_crash_lat) and speed > 30 and not race_finished
     if is_crash:
         was_crashed = True
         last_crash_time = now
 
-    # ----------------------------------------------------
-    # INFERRED DAMAGE PIPELINE
     # ----------------------------------------------------
     # INFERRED DAMAGE PIPELINE
     # ----------------------------------------------------
@@ -454,8 +466,10 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         is_accelerating = False
         
     # Steering Damage Tracking
-    if was_crashed and speed > 60 and throttle > 50:
-        if abs(steer) < 5 and abs(g_lat) > 0.4:
+    # Only trigger if driving straight (low steer input) but car is pulling hard laterally.
+    # Threshold raised to 0.8G to avoid false positives from road camber / gentle curves.
+    if was_crashed and speed > 80 and throttle > 70:
+        if abs(steer) < 3 and abs(g_lat) > 0.8:
             if not damage_inferred or (now - last_damage_report_time > 120):
                 global_is_suspension_damaged = True
                 damage_inferred = True
@@ -552,7 +566,7 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         prompt = "The car took heavy damage, top speed is significantly down. Instruct the Boss to box for repairs immediately."
         emotion = 'angry'
     elif car_swapped:
-        prompt = "The Boss just hopped into a new car. Acknowledge the switch and hype them up for the next session."
+        prompt = "I just switched you into a new car. Hype me up for the next session."
         emotion = 'happy'
     elif is_jumping:
         prompt = f"Car is airborne at {speed} km/h! React with excitement about the massive jump."
@@ -574,7 +588,7 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         emotion = 'angry'
     elif is_crash:
         emotion = 'shocked'
-        prompt = f"Crashed heavily at {last_speed} km/h. Sarcastic tip about braking."
+        prompt = f"Wall hit at {last_speed:.0f} km/h. Give a sarcastic reaction."
     elif is_ramming:
         prompt = f"Rammed something. Warn to preserve aero."
         emotion = 'angry'

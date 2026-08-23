@@ -1,14 +1,7 @@
 class PhysicsEngine {
     constructor() {
-        this.damageSeverity = 0;
-        this.engineDamage = 0;
-        this.criticalDamageCount = 0;
-        this.lastDamageTime = 0;
         this.lastCarOrdinal = 0;
-        
-        this.speedHistory = [];
-        this.keHistory = [];
-        this.gHistory = [];
+        this.lastDamageTime = 0;
         
         this.isPulling = false;
         this.pullStartTime = 0;
@@ -21,7 +14,7 @@ class PhysicsEngine {
         this.driftState = 'NONE'; // 'NONE', 'DRIFTING', 'SPUN_OUT'
         this.hasBlowout = false;
         
-        // Detailed Damage
+        // Detailed Damage (from backend)
         this.damage_drivetrain = false;
         this.damage_suspension = false;
         this.damage_aero = false;
@@ -38,12 +31,13 @@ class PhysicsEngine {
         // 0. CAR SWAP RESET
         if (data.car_ordinal !== undefined && data.car_ordinal !== 0) {
             if (this.lastCarOrdinal !== 0 && this.lastCarOrdinal !== data.car_ordinal) {
-                this.damageSeverity = 0;
-                this.engineDamage = 0;
-                this.criticalDamageCount = 0;
                 this.isCrashed = false;
                 this.hasBlowout = false;
-                this.inferredMass = 0; // reset mass inference
+                this.damage_drivetrain = false;
+                this.damage_suspension = false;
+                this.damage_aero = false;
+                this.damage_totaled = false;
+                this.inferredMass = 0;
             }
             this.lastCarOrdinal = data.car_ordinal;
         }
