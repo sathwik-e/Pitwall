@@ -68,7 +68,10 @@ You can run the Pitwall server on your main Windows PC and use your iPhone, iPad
 2. Ensure your mobile device is connected to the **same Wi-Fi network** as your PC.
 3. Find your PC's local IPv4 address (Open Command Prompt and type `ipconfig`). For example: `192.168.1.100`.
 4. Open Safari or Chrome on your mobile device and navigate to `http://192.168.1.100:6900`.
-5. **Important for iOS Safari**: To allow F.R.I.D.A.Y.'s audio commentary to play, you must interact with the page first. Simply tap the **AI Toggle Switch** off and on again in the top right to unlock iOS audio permissions.
+5. **Audio Setup (Important for iOS)**: Apple strictly blocks audio from playing automatically. To hear F.R.I.D.A.Y.'s commentary, you must interact with the page once it loads. Simply tap the **AI Toggle Switch** off and on again to unlock audio permissions.
+6. **Microphone Setup (Mobile Limitation)**: Modern mobile browsers (Safari/Chrome) strictly block microphone access on standard local IP addresses (HTTP) for security. 
+   - **Recommended Fix:** Keep the dashboard open on your phone for telemetry, but leave a browser tab open at `http://localhost:6900` on your main Windows PC (or leave the `.exe` running). Your PC will securely capture your microphone input to talk to F.R.I.D.A.Y., while your phone acts purely as a visual HUD!
+   - *Alternatively, use a tool like [Ngrok](https://ngrok.com/) to tunnel port 6900 through a secure `https://` connection to your phone.*
 
 ## Mac OS Setup (Porting)
 
