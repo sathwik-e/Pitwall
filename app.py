@@ -293,10 +293,17 @@ current_telemetry = {}
 def handle_client_audio(data):
     try:
         b64_audio = data.get('audio')
+        mime_type = data.get('mimeType', 'audio/webm')
         if not b64_audio: return
         
+        # Determine extension from mimeType
+        ext = 'mp4' if 'mp4' in mime_type else ('ogg' if 'ogg' in mime_type else 'webm')
+        temp_file = f"temp_voice.{ext}"
+        
+        # Pad base64 if needed
+        b64_audio += "=" * ((4 - len(b64_audio) % 4) % 4)
         audio_bytes = base64.b64decode(b64_audio)
-        temp_file = "temp_voice.webm"
+        
         with open(temp_file, "wb") as f:
             f.write(audio_bytes)
             
@@ -304,9 +311,9 @@ def handle_client_audio(data):
         url = "https://api.groq.com/openai/v1/audio/transcriptions"
         headers = { "Authorization": f"Bearer {APP_CONFIG['groq_key']}" }
         with open(temp_file, "rb") as f:
-            files = { 'file': (temp_file, f, 'audio/webm') }
-            data = { 'model': 'whisper-large-v3', 'response_format': 'json' }
-            response = requests.post(url, headers=headers, files=files, data=data)
+            files = { 'file': (temp_file, f, mime_type) }
+            payload = { 'model': 'whisper-large-v3', 'response_format': 'json' }
+            response = requests.post(url, headers=headers, files=files, data=payload)
             
             if response.status_code == 200:
                 transcript = response.json().get('text', '').strip()
@@ -319,9 +326,11 @@ def handle_client_audio(data):
                     threading.Thread(target=generate_ai_commentary, args=(prompt, False, 'neutral'), daemon=True).start()
             else:
                 print(f"[Audio] Whisper Error: {response.status_code} - {response.text}")
+                socketio.emit('header_alert', {'msg': f"Mic Error: {response.status_code}"})
             
     except Exception as e:
         print(f"[Audio] Client Audio Processing Error: {e}")
+        socketio.emit('header_alert', {'msg': "Audio Processing Error"})
 last_race_pos = -1
 last_pos_time = 0
 rev_limit_start_time = 0

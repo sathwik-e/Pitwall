@@ -777,11 +777,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 mediaRecorder.onstop = () => {
                     if (audioChunks.length > 0) {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                        const audioBlob = new Blob(audioChunks, { type: mimeType });
                         const reader = new FileReader();
                         reader.onload = function(event) {
                             const base64Audio = event.target.result.split(',')[1];
-                            socket.emit('client_audio', { audio: base64Audio });
+                            socket.emit('client_audio', { audio: base64Audio, mimeType: mimeType });
                         };
                         reader.readAsDataURL(audioBlob);
                         audioChunks = [];
@@ -907,4 +908,4 @@ socket.on('stop_audio', () => {
     
     subtitleContainer.style.display = 'none';
     if (subtitleTimeout) clearTimeout(subtitleTimeout);
-});
+});socket.on('header_alert', data => alert(data.msg));
