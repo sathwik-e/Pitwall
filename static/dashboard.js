@@ -765,8 +765,20 @@ document.addEventListener('DOMContentLoaded', () => {
             updateListenState();
         });
 
+        let analyser;
+        let dataArray;
+        let vadInterval;
+        let hasSpokenInChunk = false;
+
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(stream => {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+
                 mediaRecorder = new MediaRecorder(stream);
                 
                 mediaRecorder.ondataavailable = event => {
@@ -776,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 mediaRecorder.onstop = () => {
-                    if (audioChunks.length > 0) {
+                    if (audioChunks.length > 0 && hasSpokenInChunk) {
                         const mimeType = mediaRecorder.mimeType || 'audio/webm';
                         const audioBlob = new Blob(audioChunks, { type: mimeType });
                         const reader = new FileReader();
@@ -785,8 +797,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             socket.emit('client_audio', { audio: base64Audio, mimeType: mimeType });
                         };
                         reader.readAsDataURL(audioBlob);
-                        audioChunks = [];
                     }
+                    audioChunks = [];
+                    hasSpokenInChunk = false; // Reset for next chunk
                     
                     // If comms are still enabled, immediately restart recording for the next chunk
                     if (micEnabled && mediaRecorder.state === "inactive") {
@@ -794,39 +807,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 };
 
-                function updateListenState() {
-                    if (micEnabled) {
-                        if (mediaRecorder.state === "inactive") mediaRecorder.start();
-                        if (micStatusLabel) {
-                            micStatusLabel.innerText = 'MIC ACTIVE';
-                            micStatusLabel.style.color = '#ff3366';
-                            micStatusLabel.style.fontWeight = 'bold';
-                        }
-                        
-                        // Stop and flush the chunk every 5 seconds
-                        if (!listenInterval) {
-                            listenInterval = setInterval(() => {
-                                if (mediaRecorder.state === "recording") mediaRecorder.stop();
-                            }, 5000);
-                        }
-                    } else {
-                        if (mediaRecorder.state === "recording") mediaRecorder.stop();
-                        if (listenInterval) {
-                            clearInterval(listenInterval);
-                            listenInterval = null;
-                        }
-                        if (micStatusLabel) {
-                            micStatusLabel.innerText = 'MICROPHONE';
-                            micStatusLabel.style.color = 'var(--text-dim)';
-                            micStatusLabel.style.fontWeight = 'normal';
-                        }
-                    }
-                }
-
                 // AI Strategy toggle still unlocks audio context but no longer mutes the mic
                 if (toggle) {
                     toggle.addEventListener('change', () => {
-                        // Just an empty callback if they toggle AI on/off, audio context is unlocked elsewhere
+                        if (audioContext.state === 'suspended') {
+                            audioContext.resume();
+                        }
                     });
                 }
                 
@@ -840,6 +826,56 @@ document.addEventListener('DOMContentLoaded', () => {
                     micStatusLabel.style.color = '#ff3366';
                 }
             });
+            
+        function updateListenState() {
+            if (micEnabled) {
+                if (mediaRecorder && mediaRecorder.state === "inactive") mediaRecorder.start();
+                if (micStatusLabel) {
+                    micStatusLabel.innerText = 'MIC ACTIVE';
+                    micStatusLabel.style.color = '#ff3366';
+                    micStatusLabel.style.fontWeight = 'bold';
+                }
+                
+                if (!vadInterval) {
+                    vadInterval = setInterval(() => {
+                        if (analyser) {
+                            analyser.getByteFrequencyData(dataArray);
+                            let sum = 0;
+                            for (let i = 0; i < dataArray.length; i++) {
+                                sum += dataArray[i];
+                            }
+                            let average = sum / dataArray.length;
+                            // Volume threshold (adjust if needed, usually background noise is < 5)
+                            if (average > 10) {
+                                hasSpokenInChunk = true;
+                            }
+                        }
+                    }, 100);
+                }
+                
+                // Stop and flush the chunk every 5 seconds
+                if (!listenInterval) {
+                    listenInterval = setInterval(() => {
+                        if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+                    }, 5000);
+                }
+            } else {
+                if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+                if (listenInterval) {
+                    clearInterval(listenInterval);
+                    listenInterval = null;
+                }
+                if (vadInterval) {
+                    clearInterval(vadInterval);
+                    vadInterval = null;
+                }
+                if (micStatusLabel) {
+                    micStatusLabel.innerText = 'MICROPHONE';
+                    micStatusLabel.style.color = 'var(--text-dim)';
+                    micStatusLabel.style.fontWeight = 'normal';
+                }
+            }
+        }
     }
 });
 
