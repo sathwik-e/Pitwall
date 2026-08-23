@@ -1,5 +1,5 @@
-// Establish WebSocket connection
 const socket = io();
+window.socket = socket;
 
 // UI Connection Status Handlers
 socket.on('connect', () => {
@@ -307,7 +307,7 @@ socket.on('telemetry_update', (data) => {
 //   2D VECTOR HUD CAR (CANVAS 2D)
 // ============================================================================
 const canvas = document.getElementById('trackMap');
-const ctx = canvas.getContext('2d');
+const ctx = canvas ? canvas.getContext('2d') : null;
 let currentTelemetry = null;
 const physics = new PhysicsEngine();
 
@@ -320,9 +320,12 @@ function resizeCanvas() {
     canvas.style.width = rect.width + 'px';
     canvas.style.height = rect.height + 'px';
 }
-window.addEventListener('resize', resizeCanvas);
-// Call once initially but delay slightly to ensure layout is done
-setTimeout(resizeCanvas, 100);
+
+if (canvas) {
+    window.addEventListener('resize', resizeCanvas);
+    // Call once initially but delay slightly to ensure layout is done
+    setTimeout(resizeCanvas, 100);
+}
 
 // Crash Warning UI
 const crashText = document.getElementById('headerAlerts');
