@@ -1,4 +1,4 @@
-# Pitwall — F.R.I.D.A.Y. AI Race Engineer 🏎️🤖
+# Pitwall — F.R.I.D.A.Y. AI Race Engineer
 
 **Pitwall** is a live telemetry dashboard and AI-powered race engineer for sim racing (Forza Horizon/Motorsport). It captures real-time UDP telemetry data from the game and uses a highly optimized physics engine and lightweight AI models to give you dynamic, context-aware audio feedback via a custom "F.R.I.D.A.Y." persona.
 
