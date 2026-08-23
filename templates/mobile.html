@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#000a12" />
   <title>F.R.I.D.A.Y. // Mobile Racing HUD</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,8 +19,11 @@
   <header class="mobile-top-bar">
     <div class="brand">
       <span class="brand-dot" id="connDot"></span>
-      <span class="brand-text">F.R.I.D.A.Y.</span>
+      <span class="brand-text">FRIDAY</span>
     </div>
+
+    <!-- Damage / Alert Banner -->
+    <div class="mobile-alert-banner" id="mobileAlertBanner"></div>
 
     <!-- AI Voice Comms Toggle -->
     <div class="mobile-toggles" style="display: flex; gap: 15px;">
@@ -40,19 +47,28 @@
   <!-- ============================== MAIN HORIZONTAL HUD ============================== -->
   <main class="mobile-hud-viewport" id="mobileHud">
     
-    <!-- LEFT PANEL: Laps -->
+    <!-- LEFT PANEL: Laps & Position -->
     <div class="mobile-panel left-panel">
       <div class="stat-group">
         <span class="stat-label">POSITION</span>
         <span class="stat-val-xl val-cyan" id="posVal">--</span>
       </div>
-      <div class="stat-group" style="margin-top: 15px;">
-        <span class="stat-label">LAP TIME</span>
-        <span class="stat-val-md val-gold" id="currentLapVal">--:--.---</span>
+      <div class="stat-group" style="margin-top: 10px;">
+        <span class="stat-label">LAP</span>
+        <span class="stat-val-md val-cyan" id="lapVal">--</span>
+      </div>
+      <div class="divider-line"></div>
+      <div class="stat-group">
+        <span class="stat-label">CURRENT</span>
+        <span class="stat-val-sm val-gold" id="currentLapVal">--:--.---</span>
       </div>
       <div class="stat-group">
-        <span class="stat-label">BEST LAP</span>
+        <span class="stat-label">BEST</span>
         <span class="stat-val-sm val-cyan" id="bestLapVal">--:--.---</span>
+      </div>
+      <div class="stat-group">
+        <span class="stat-label">LAST</span>
+        <span class="stat-val-sm val-dim" id="lastLapVal">--:--.---</span>
       </div>
     </div>
 
@@ -72,13 +88,24 @@
         </div>
       </div>
       
-      <div class="rpm-text-group">
-        <span class="stat-label">RPM</span>
-        <span class="stat-val-md" id="rpmVal">0</span>
+      <!-- Throttle / Brake Bars -->
+      <div class="pedal-bars">
+        <div class="pedal-bar-group">
+          <span class="pedal-label">THR</span>
+          <div class="pedal-track">
+            <div class="pedal-fill pedal-throttle" id="throttleMobileFill"></div>
+          </div>
+        </div>
+        <div class="pedal-bar-group">
+          <span class="pedal-label">BRK</span>
+          <div class="pedal-track">
+            <div class="pedal-fill pedal-brake" id="brakeMobileFill"></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- RIGHT PANEL: Essential Tyres / G-Force (Simplified) -->
+    <!-- RIGHT PANEL: Tyres & G-Force -->
     <div class="mobile-panel right-panel">
       <div class="fp-box">
         <div class="fp-title">G-FORCE</div>
@@ -86,13 +113,34 @@
         <div class="fp-inline"><span class="val-dim">LON:</span> <span class="val-cyan" id="gLonVal">0.0G</span></div>
       </div>
       
-      <div class="fp-box" style="margin-top: 20px;">
-        <div class="fp-title">RACE STATUS</div>
-        <div class="fp-inline"><span class="val-cyan" id="raceStatusVal">STANDBY</span></div>
+      <div class="divider-line"></div>
+
+      <!-- Tyre Temps Mini Grid -->
+      <div class="fp-box">
+        <div class="fp-title">TYRES</div>
+        <div class="tyre-mini-grid">
+          <div class="tyre-mini" id="tyreMiniFL">--°</div>
+          <div class="tyre-mini" id="tyreMiniRF">--°</div>
+          <div class="tyre-mini" id="tyreMiniRL">--°</div>
+          <div class="tyre-mini" id="tyreMiniRR">--°</div>
+        </div>
+      </div>
+
+      <div class="divider-line"></div>
+      
+      <div class="fp-box">
+        <div class="fp-title">POWER</div>
+        <div class="fp-inline"><span class="val-cyan" id="powerVal">-- HP</span></div>
       </div>
     </div>
 
   </main>
+
+  <!-- FRIDAY Subtitle Bar -->
+  <div class="friday-subtitle-bar" id="fridaySubtitleBar">
+    <span class="friday-sub-icon">📡</span>
+    <span class="friday-sub-text" id="fridaySubText">Waiting for telemetry...</span>
+  </div>
 
   <!-- ============================== PORTRAIT WARNING OVERLAY ============================== -->
   <div class="portrait-warning" id="portraitWarning">
@@ -108,7 +156,7 @@
     <div class="setup-box">
       <h2 style="color: #00f3ff; margin-bottom: 10px;">MOBILE HUD READY</h2>
       <p style="margin-bottom: 15px; color: #fff;">1. Toggle the <b>AI AUDIO</b> switch (top right) off and on to unlock sound permissions.</p>
-      <p style="margin-bottom: 15px; color: #aaa;">2. To talk to F.R.I.D.A.Y., you can just use your PC's microphone (Open <code>http://localhost:6900</code> on your PC).</p>
+      <p style="margin-bottom: 15px; color: #aaa;">2. To talk to FRIDAY, you can just use your PC's microphone (Open <code>http://localhost:6900</code> on your PC).</p>
       <p style="margin-bottom: 25px; color: #aaa;">3. <b>Want to use your phone's mic instead?</b> Mobile browsers block microphones on local Wi-Fi IPs. Run <code>ngrok http 6900</code> on your PC and open the secure <code>https://</code> link it generates on your phone.</p>
       <button onclick="document.getElementById('setupGuide').style.display='none'" class="ptt-btn">DISMISS</button>
     </div>
@@ -118,27 +166,90 @@
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <audio id="aiAudio" style="display:none;"></audio>
   <script src="{{ url_for('static', filename='physics.js') }}"></script>
-  <script src="{{ url_for('static', filename='dashboard.js') }}?v=2.1"></script>
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v=3.0"></script>
   
   <script>
-    // Custom mobile logic for RPM bar since we aren't using the SVG ring
+    // ── MOBILE-SPECIFIC TELEMETRY UPDATES ──
     window.socket.on('telemetry_update', function(data) {
+        // RPM Bar
         const rpmBar = document.getElementById('rpmMobileFill');
-        if (rpmBar && data.current_rpm && data.max_rpm) {
-            let pct = (data.current_rpm / data.max_rpm) * 100;
+        if (rpmBar && data.rpm && data.max_rpm) {
+            let pct = (data.rpm / data.max_rpm) * 100;
             pct = Math.min(Math.max(pct, 0), 100);
             rpmBar.style.width = pct + '%';
             
             if (pct > 95) {
-                rpmBar.style.background = '#ff3366'; // Redline
+                rpmBar.style.background = '#ff3366';
                 rpmBar.style.boxShadow = '0 0 15px #ff3366';
             } else if (pct > 80) {
-                rpmBar.style.background = '#ffb800'; // Optimal shift
+                rpmBar.style.background = '#ffb800';
                 rpmBar.style.boxShadow = '0 0 15px #ffb800';
             } else {
-                rpmBar.style.background = '#00f3ff'; // Normal
+                rpmBar.style.background = '#00f3ff';
                 rpmBar.style.boxShadow = '0 0 10px #00f3ff';
             }
+        }
+
+        // Throttle / Brake Bars
+        const thrBar = document.getElementById('throttleMobileFill');
+        const brkBar = document.getElementById('brakeMobileFill');
+        if (thrBar) thrBar.style.width = (data.throttle_pct || 0) + '%';
+        if (brkBar) brkBar.style.width = (data.brake_pct || 0) + '%';
+
+        // Tyre Temps Mini Grid
+        if (data.tyres) {
+            const setTyre = (id, temp) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.innerText = temp + '°';
+                if (temp < 70) el.style.color = '#0ea5e9';
+                else if (temp > 105) el.style.color = '#ff3366';
+                else el.style.color = '#10b981';
+            };
+            setTyre('tyreMiniFL', data.tyres.FL.temp);
+            setTyre('tyreMiniRF', data.tyres.FR.temp);
+            setTyre('tyreMiniRL', data.tyres.RL.temp);
+            setTyre('tyreMiniRR', data.tyres.RR.temp);
+        }
+
+        // Power
+        const powerEl = document.getElementById('powerVal');
+        if (powerEl && data.power_hp !== undefined) {
+            powerEl.innerText = data.power_hp + ' HP';
+        }
+
+        // Damage Alert Banner
+        const alertBanner = document.getElementById('mobileAlertBanner');
+        if (alertBanner) {
+            if (data.damage_totaled) {
+                alertBanner.innerText = '⚠ CAR TOTALED';
+                alertBanner.className = 'mobile-alert-banner alert-critical';
+            } else if (data.damage_drivetrain || data.damage_suspension || data.damage_aero) {
+                let parts = [];
+                if (data.damage_aero) parts.push('AERO');
+                if (data.damage_suspension) parts.push('SUSP');
+                if (data.damage_drivetrain) parts.push('DT');
+                alertBanner.innerText = '⚠ DMG: ' + parts.join(' | ');
+                alertBanner.className = 'mobile-alert-banner alert-warning';
+            } else if (data.is_crash) {
+                alertBanner.innerText = '⚠ IMPACT';
+                alertBanner.className = 'mobile-alert-banner alert-critical';
+            } else {
+                alertBanner.innerText = '';
+                alertBanner.className = 'mobile-alert-banner';
+            }
+        }
+    });
+
+    // ── FRIDAY SUBTITLE BAR ──
+    window.socket.on('play_audio', function(data) {
+        const subText = document.getElementById('fridaySubText');
+        if (subText && data.text) {
+            subText.innerText = data.text;
+            subText.parentElement.classList.add('active');
+            setTimeout(() => {
+                subText.parentElement.classList.remove('active');
+            }, 8000);
         }
     });
 
@@ -147,7 +258,7 @@
         if (!document.fullscreenElement) {
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen().catch(e => {});
-            } else if (document.documentElement.webkitRequestFullscreen) { /* Safari */
+            } else if (document.documentElement.webkitRequestFullscreen) {
                 document.documentElement.webkitRequestFullscreen();
             }
         }
@@ -158,14 +269,15 @@
       if (window.innerHeight > window.innerWidth) {
         document.getElementById('portraitWarning').style.display = 'flex';
         document.getElementById('mobileHud').style.display = 'none';
+        document.getElementById('fridaySubtitleBar').style.display = 'none';
       } else {
         document.getElementById('portraitWarning').style.display = 'none';
         document.getElementById('mobileHud').style.display = 'flex';
+        document.getElementById('fridaySubtitleBar').style.display = 'flex';
         requestFullScreen();
       }
     }
     
-    // Browsers require a user gesture to enter fullscreen, so bind it to any touch/click
     document.body.addEventListener('click', () => {
         if (window.innerWidth > window.innerHeight) {
             requestFullScreen();
