@@ -805,7 +805,7 @@ if __name__ == '__main__':
     
     # Run the Flask server in a daemon thread so the main thread can be used by PyWebView
     def run_server():
-        socketio.run(app, host='127.0.0.1', port=WEB_PORT, allow_unsafe_werkzeug=True)
+        socketio.run(app, host='0.0.0.0', port=WEB_PORT, allow_unsafe_werkzeug=True)
         
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()

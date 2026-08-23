@@ -50,6 +50,16 @@ You must tell Forza to broadcast telemetry data to Pitwall.
 4. Set **Data Out IP Address** to `127.0.0.1`.
 5. Set **Data Out IP Port** to `5300`.
 
+## Mobile & iOS Setup (Second Screen)
+
+You can run the Pitwall server on your main Windows PC and use your iPhone, iPad, or Android device as your telemetry screen!
+
+1. Start Pitwall on your PC (via `Pitwall_Live_Telemetry.exe` or `app.py`). 
+2. Ensure your mobile device is connected to the **same Wi-Fi network** as your PC.
+3. Find your PC's local IPv4 address (Open Command Prompt and type `ipconfig`). For example: `192.168.1.100`.
+4. Open Safari or Chrome on your mobile device and navigate to `http://192.168.1.100:6900`.
+5. **Important for iOS Safari**: To allow F.R.I.D.A.Y.'s audio commentary to play, you must interact with the page first. Simply tap the **AI Toggle Switch** off and on again in the top right to unlock iOS audio permissions.
+
 ## Mac OS Setup (Porting)
 
 If you are running Forza on an Xbox or a separate Windows PC on the same network, you can run Pitwall on a Mac to serve as your telemetry screen.
