@@ -289,49 +289,33 @@ last_time = time.time()
 last_joke_time = 0
 current_telemetry = {}
 
-@socketio.on('client_audio')
-def handle_client_audio(data):
+@socketio.on('client_text')
+def handle_client_text(data):
     try:
-        print("[Audio] DEBUG: Received client_audio event from frontend!")
-        b64_audio = data.get('audio')
-        mime_type = data.get('mimeType', 'audio/webm')
-        if not b64_audio: return
+        transcript = data.get('text', '').strip()
+        if not transcript: return
         
-        # Determine extension from mimeType
-        ext = 'mp4' if 'mp4' in mime_type else ('ogg' if 'ogg' in mime_type else 'webm')
-        temp_file = f"temp_voice.{ext}"
+        print(f"[Voice] Boss: {transcript}")
+        socketio.emit('subtitle', {'text': f"Boss: {transcript}", 'duration': 3000})
         
-        # Pad base64 if needed
-        b64_audio += "=" * ((4 - len(b64_audio) % 4) % 4)
-        audio_bytes = base64.b64decode(b64_audio)
+        # Determine urgency context
+        is_urgent = any(word in transcript.lower() for word in ['crash', 'spin', 'damage', 'help', 'urgent', 'box'])
+        emotion_mode = 'urgent' if is_urgent else 'neutral'
         
-        with open(temp_file, "wb") as f:
-            f.write(audio_bytes)
+        # Build strict game context and prompt
+        if last_race_pos > 0:
+            car_context = f"[Game: {current_telemetry.get('game_id', 'Unknown')} | Pos: {last_race_pos} | Speed: {current_telemetry.get('speed', 0)} km/h, Gear: {current_telemetry.get('gear', 'N')}, Throttle: {current_telemetry.get('throttle_pct', 0):.0f}%]"
+        else:
+            car_context = f"[Game: {current_telemetry.get('game_id', 'Unknown')} | Speed: {current_telemetry.get('speed', 0)} km/h, Gear: {current_telemetry.get('gear', 'N')}, Throttle: {current_telemetry.get('throttle_pct', 0):.0f}%]"
             
-        # Transcribe with Groq Whisper
-        url = "https://api.groq.com/openai/v1/audio/transcriptions"
-        headers = { "Authorization": f"Bearer {APP_CONFIG['groq_key']}" }
-        with open(temp_file, "rb") as f:
-            files = { 'file': (temp_file, f, mime_type) }
-            payload = { 'model': 'whisper-large-v3', 'response_format': 'json' }
-            response = requests.post(url, headers=headers, files=files, data=payload, timeout=10)
-            
-            if response.status_code == 200:
-                transcript = response.json().get('text', '').strip()
-                # Ignore empty transcripts or Whisper's common silence hallucinations
-                ignore_list = ["", "you", "silence.", "silence", "thanks for watching.", "thanks for watching", "bye.", "."]
-                if transcript and transcript.lower() not in ignore_list and len(transcript) > 2:
-                    print(f"[Voice] Boss: {transcript}")
-                    car_context = f"[Game: {current_telemetry.get('game_id', 'Unknown')} | Speed: {current_telemetry.get('speed', 0)} km/h, Gear: {current_telemetry.get('gear', 'N')}, Throttle: {current_telemetry.get('throttle_pct', 0):.0f}%]"
-                    prompt = f"[User asked over radio]: {transcript}\n\n{car_context}"
-                    threading.Thread(target=generate_ai_commentary, args=(prompt, False, 'neutral'), daemon=True).start()
-            else:
-                print(f"[Audio] Whisper Error: {response.status_code} - {response.text}")
-                socketio.emit('header_alert', {'msg': f"Mic Error: {response.status_code}"})
+        prompt = f"[User asked over radio]: {transcript}\n\n{car_context}"
+        
+        # Generate the response on a background thread so server stays non-blocking
+        threading.Thread(target=generate_ai_commentary, args=(prompt, False, emotion_mode), daemon=True).start()
             
     except Exception as e:
-        print(f"[Audio] Client Audio Processing Error: {e}")
-        socketio.emit('header_alert', {'msg': "Audio Processing Error"})
+        print(f"[Voice] Client Text Processing Error: {e}")
+        socketio.emit('header_alert', {'msg': "Speech Recognition Error"})
 last_race_pos = -1
 last_pos_time = 0
 rev_limit_start_time = 0
