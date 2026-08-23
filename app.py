@@ -400,15 +400,15 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     # MULTI-AXIS COLLISION DETECTION
     # ----------------------------------------------------
     # A crash is an extreme spike in G-forces that cannot be achieved through tires alone.
-    # Max cornering/braking Gs are usually < 5.0. Anything > 8.0 is a rigid body collision.
-    is_crash_lon = g_lon < -8.0 # Hitting a wall head-on
-    is_crash_lat = abs(g_lat) > 8.0 # Sideswiping a wall
+    # Forza physics can spike to 10-15G just from hitting curbs or bottoming out the suspension.
+    # A true wall impact that causes damage will spike to 20G-50G.
+    is_crash_lon = g_lon < -20.0 # Hitting a solid wall head-on
+    is_crash_lat = abs(g_lat) > 20.0 # Sideswiping a solid wall
     
-    # Backup decel calculation just in case the telemetry misses the exact G-force spike frame
-    decel = (speed_drop / 3.6) / dt
-    is_crash_decel = decel > 98.0 or (decel > 58.8 and brake < 50)
-    
-    is_crash = (is_crash_lon or is_crash_lat or is_crash_decel) and not race_finished
+    # We completely ignore speed_drop deltas now because UDP network jitter causes dt 
+    # to become incredibly small (e.g. 0.001s), which mathematically explodes the decel value 
+    # and falsely triggers a crash even if you just let off the throttle.
+    is_crash = (is_crash_lon or is_crash_lat) and not race_finished
     if is_crash:
         was_crashed = True
         last_crash_time = now
@@ -451,9 +451,16 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
                 damage_inferred = True
                 last_damage_report_time = now
                 
+    is_totaled = False
     if was_crashed and (now - last_crash_time > 15) and baseline_max_speed > 100:
         if throttle > 90 and gear >= 3 and speed > 50:
-            if speed < (baseline_max_speed * 0.85):
+            # Check if speed is severely crippled (lost > 40% of baseline top speed)
+            if speed < (baseline_max_speed * 0.60):
+                if not damage_inferred or (now - last_damage_report_time > 120):
+                    is_totaled = True
+                    damage_inferred = True
+                    last_damage_report_time = now
+            elif speed < (baseline_max_speed * 0.85):
                 if not damage_inferred or (now - last_damage_report_time > 120):
                     is_aero_damaged = True
                     damage_inferred = True
@@ -501,7 +508,7 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
             bad_launch_start_time = 0
 
     # SMART COOLDOWN TIERS
-    is_critical = car_swapped or is_crash or is_ramming or is_jumping or is_drivetrain_damaged or is_suspension_damaged or is_aero_damaged
+    is_critical = car_swapped or is_crash or is_ramming or is_jumping or is_drivetrain_damaged or is_suspension_damaged or is_aero_damaged or is_totaled
     is_warning = is_spin or is_bouncing_limiter or is_bogging or is_money_shift or is_bad_launch
     is_chatter = is_drifting or is_donut or is_turning
 
@@ -521,7 +528,10 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     emotion = 'neutral'
     
     # Priority logic (if multiple things happened, only report the worst one)
-    if is_drivetrain_damaged:
+    if is_totaled:
+        prompt = "The car is completely totaled and pace is severely low. Suggest restarting the race or switching cars."
+        emotion = 'shocked'
+    elif is_drivetrain_damaged:
         prompt = f"The car's 0-100 time was {time_taken:.1f}s, normally it's {best_0_100_time:.1f}s. Instruct the Boss to box due to severe drivetrain damage."
         emotion = 'angry'
     elif is_suspension_damaged:
