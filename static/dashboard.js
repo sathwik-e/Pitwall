@@ -765,64 +765,81 @@ document.addEventListener('DOMContentLoaded', () => {
             updateListenState();
         });
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            if (micStatusLabel) {
-                micStatusLabel.innerText = 'UNSUPPORTED';
-                micStatusLabel.style.color = '#ff3366';
-            }
-        } else {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
 
-            recognition.onresult = (event) => {
-                const finalTranscript = event.results[event.results.length - 1][0].transcript;
-                if (finalTranscript.trim().length > 0) {
-                    socket.emit('client_text', { text: finalTranscript.trim() });
+                mediaRecorder.onstop = () => {
+                    if (audioChunks.length > 0) {
+                        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                        const audioBlob = new Blob(audioChunks, { type: mimeType });
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const base64Audio = event.target.result.split(',')[1];
+                            socket.emit('client_audio', { audio: base64Audio, mimeType: mimeType });
+                        };
+                        reader.readAsDataURL(audioBlob);
+                        audioChunks = [];
+                    }
+                    
+                    // If comms are still enabled, immediately restart recording for the next chunk
+                    if (micEnabled && mediaRecorder.state === "inactive") {
+                        mediaRecorder.start();
+                    }
+                };
+
+                function updateListenState() {
+                    if (micEnabled) {
+                        if (mediaRecorder.state === "inactive") mediaRecorder.start();
+                        if (micStatusLabel) {
+                            micStatusLabel.innerText = 'MIC ACTIVE';
+                            micStatusLabel.style.color = '#ff3366';
+                            micStatusLabel.style.fontWeight = 'bold';
+                        }
+                        
+                        // Stop and flush the chunk every 5 seconds
+                        if (!listenInterval) {
+                            listenInterval = setInterval(() => {
+                                if (mediaRecorder.state === "recording") mediaRecorder.stop();
+                            }, 5000);
+                        }
+                    } else {
+                        if (mediaRecorder.state === "recording") mediaRecorder.stop();
+                        if (listenInterval) {
+                            clearInterval(listenInterval);
+                            listenInterval = null;
+                        }
+                        if (micStatusLabel) {
+                            micStatusLabel.innerText = 'MICROPHONE';
+                            micStatusLabel.style.color = 'var(--text-dim)';
+                            micStatusLabel.style.fontWeight = 'normal';
+                        }
+                    }
                 }
-            };
 
-            recognition.onerror = (event) => {
-                console.error("Speech Recognition Error:", event.error);
-                if (event.error === 'not-allowed' && micStatusLabel) {
+                // AI Strategy toggle still unlocks audio context but no longer mutes the mic
+                if (toggle) {
+                    toggle.addEventListener('change', () => {
+                        // Just an empty callback if they toggle AI on/off, audio context is unlocked elsewhere
+                    });
+                }
+                
+                // Start initial state
+                updateListenState();
+            })
+            .catch(err => {
+                console.error("Mic access denied:", err);
+                if (micStatusLabel) {
                     micStatusLabel.innerText = 'MIC DENIED';
                     micStatusLabel.style.color = '#ff3366';
-                    micEnabled = false;
-                    micToggle.checked = false;
                 }
-            };
-
-            recognition.onend = () => {
-                if (micEnabled) {
-                    try { recognition.start(); } catch(e) {}
-                }
-            };
-
-            function updateListenState() {
-                if (micEnabled) {
-                    try { recognition.start(); } catch(e) {}
-                    if (micStatusLabel) {
-                        micStatusLabel.innerText = 'MIC ACTIVE';
-                        micStatusLabel.style.color = '#ff3366';
-                        micStatusLabel.style.fontWeight = 'bold';
-                    }
-                } else {
-                    recognition.stop();
-                    if (micStatusLabel) {
-                        micStatusLabel.innerText = 'MICROPHONE';
-                        micStatusLabel.style.color = 'var(--text-dim)';
-                        micStatusLabel.style.fontWeight = 'normal';
-                    }
-                }
-            }
-
-            if (toggle) {
-                toggle.addEventListener('change', () => {});
-            }
-            updateListenState();
-        }
+            });
     }
 });
 
