@@ -821,7 +821,7 @@ def handle_driver_radio(data):
         prompt = f"The Boss (Shanks) says over the radio: '{text}'. Respond as their race engineer."
         threading.Thread(target=generate_ai_commentary, args=(prompt,), daemon=True).start()
 
-import webview
+
 import subprocess
 
 if __name__ == '__main__':
@@ -840,27 +840,34 @@ if __name__ == '__main__':
     # Start the telemetry listening loop in the background
     socketio.start_background_task(target=telemetry_loop)
     
-    # Run the Flask server in a daemon thread so the main thread can be used by PyWebView
-    def run_server():
+    # Try launching a native desktop window (Windows .exe mode).
+    # If webview fails (e.g. on macOS, or headless), fall back to browser-only mode.
+    use_webview = False
+    try:
+        import webview
+        # Only use webview on Windows where it's the intended deployment target
+        if sys.platform == 'win32':
+            use_webview = True
+    except ImportError:
+        pass
+    
+    if use_webview:
+        # Run Flask in a daemon thread, webview on main thread
+        def run_server():
+            socketio.run(app, host='0.0.0.0', port=WEB_PORT, allow_unsafe_werkzeug=True)
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+        time.sleep(0.5)
+        print("[Desktop] Starting Native Desktop Window...")
+        window = webview.create_window(
+            title='Pitwall Live Telemetry',
+            url=f'http://127.0.0.1:{WEB_PORT}',
+            width=1400, height=900,
+            resizable=True, min_size=(1000, 700),
+            background_color='#0f172a'
+        )
+        webview.start()
+    else:
+        # Browser-only mode: Flask runs on main thread (stays alive)
+        print(f"[Browser] Open http://localhost:{WEB_PORT} in your browser")
         socketio.run(app, host='0.0.0.0', port=WEB_PORT, allow_unsafe_werkzeug=True)
-        
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
-    
-    # Wait a tiny bit for the server to bind before creating the window
-    time.sleep(0.5)
-    
-    # Create the standalone desktop window
-    print("[Desktop] Starting Native Desktop Window...")
-    window = webview.create_window(
-        title='Pitwall Live Telemetry',
-        url=f'http://127.0.0.1:{WEB_PORT}',
-        width=1400,
-        height=900,
-        resizable=True,
-        min_size=(1000, 700),
-        background_color='#0f172a' # Match our dark slate background
-    )
-    
-    # Start the native window event loop
-    webview.start()
