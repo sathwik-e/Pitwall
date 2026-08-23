@@ -1,0 +1,8 @@
+Flask==3.0.3
+Flask-SocketIO==5.3.6
+edge-tts==6.1.12
+gTTS==2.5.1
+pyttsx3
+requests==2.32.2
+certifi
+pywebview

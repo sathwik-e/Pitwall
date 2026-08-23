@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F.R.I.D.A.Y. // Live Telemetry HUD</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  
+</head>
+<body>
+
+  <!-- ============================== TOP STATUS BAR ============================== -->
+  <header class="pitwall-bar">
+    <div class="brand">
+      <span class="brand-dot" id="connDot"></span>
+      <span class="brand-text">F.R.I.D.A.Y.</span>
+    </div>
+
+    <div id="headerAlerts" class="header-alerts">
+      <!-- Alerts will be injected here via JS -->
+    </div>
+
+    <div class="session-info">
+      <!-- AI Comms / Mic Status -->
+      <div style="display: flex; gap: 15px; align-items: center; border-right: 1px solid rgba(0,243,255,0.15); padding-right: 20px; margin-right: 10px;">
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span id="micStatusLabel" class="hud-label">MIC</span>
+          <label class="switch">
+            <input type="checkbox" id="micToggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span class="hud-label">AI</span>
+          <label class="switch">
+            <input type="checkbox" id="commToggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="stat">
+        <span class="stat-label">LAP</span>
+        <span class="stat-value" id="lapVal">--</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">POS</span>
+        <span class="stat-value" id="posVal">--</span>
+      </div>
+      
+      <!-- Settings Gear -->
+      <div class="stat" style="margin-left: 10px; cursor: pointer;" onclick="window.location.href='/setup'">
+        <span class="stat-value" style="font-size: 24px;">&#9881;</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- POS WATERMARK (underneath the frosted glass) -->
+  <div id="bgPosVal" class="bg-pos-watermark"></div>
+  <!-- FROSTED GLASS OVERLAY -->
+  <div class="frosted-glass"></div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settingsModal" class="connection-overlay" style="display: none; z-index: 99999;">
+    <div class="connection-box" style="text-align: left; max-width: 500px;">
+      <h2 style="margin-bottom: 20px; text-align: center;">PITWALL SETTINGS</h2>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-family: 'Rajdhani', sans-serif; font-size: 18px; margin-bottom: 8px; color: #00f3ff;">GROQ API KEY (AI Engine)</label>
+        <input type="password" id="groqKeyInput" placeholder="gsk_..." style="width: 100%; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,243,255,0.2); color: #fff; font-family: monospace; border-radius: 6px;">
+        <p style="font-size: 12px; color: #5c9bad; margin-top: 5px;">Required for AI strategy commentary and voice dictation.</p>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+        <button onclick="document.getElementById('settingsModal').style.display='none'" class="ptt-btn" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); cursor: pointer;">Close</button>
+        <button id="saveSettingsBtn" class="ptt-btn" style="cursor: pointer;">Save Keys</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== MAIN HUD ============================== -->
+  <main class="hud-viewport">
+
+    <!-- ============ CENTER: THE RING ============ -->
+    <div class="hud-ring-container">
+      <!-- Outer decorative rings (SVG) -->
+      <svg class="hud-svg-rings" viewBox="0 0 800 800">
+        <!-- Outermost decorative dashed ring -->
+        <circle cx="400" cy="400" r="390" class="ring-deco" />
+        <!-- Main thick cyan ring -->
+        <circle cx="400" cy="400" r="370" class="ring-main" />
+        <!-- Gold inner ring counter-rotating -->
+        <circle cx="400" cy="400" r="350" class="ring-gold" />
+        <!-- RPM gauge arc track -->
+        <circle cx="400" cy="400" r="330" class="rpm-track-ring" />
+        <!-- RPM gauge arc fill (animated by JS) -->
+        <circle cx="400" cy="400" r="330" class="rpm-fill-ring" id="rpmFill" />
+      </svg>
+
+      <!-- Canvas for wireframe car rendering -->
+      <canvas id="trackMap" class="car-canvas"></canvas>
+
+      <!-- Floating labels around the ring (matching concept image) -->
+      <div class="ring-label ring-label-top">TELEMETRY OVERVIEW</div>
+
+      <!-- Systems status text overlay inside the ring (top) -->
+      <div class="ring-systems-status">
+        <div id="gameIdDisplay" class="val-dim" style="font-size:11px; margin-top:2px;">UNKNOWN GAME</div>
+      </div>
+
+      <!-- Suspension labels inside the ring -->
+      <div class="ring-susp-label ring-susp-front">FRONT SUSP: <span class="val-cyan" id="suspFrontStatus">OPTIMAL</span></div>
+      <div class="ring-susp-label ring-susp-rear">REAR SUSP: <span class="val-cyan" id="suspRearStatus">OPTIMAL</span></div>
+    </div>
+
+    <!-- ============ BOTTOM CENTER STRIP: Speed, Gear, RPM, Throttle/Brake ============ -->
+    <div class="bottom-strip">
+      <div class="strip-col">
+        <span class="strip-tiny-label">THROTTLE</span>
+        <div class="strip-bar-h"><div class="strip-bar-fill-h throttle-bar" id="throttleFill"></div></div>
+      </div>
+
+      <div class="strip-col strip-col-num">
+        <span class="strip-tiny-label">GEAR</span>
+        <span class="strip-big-num" id="rpmVal">0</span>
+      </div>
+
+      <div class="strip-col strip-col-speed">
+        <span class="strip-tiny-label">SPEED</span>
+        <span class="speed-hero" id="speedVal">0</span>
+        <span class="strip-tiny-label">KM/H</span>
+      </div>
+
+      <div class="strip-col strip-col-num">
+        <span class="strip-tiny-label">RPM</span>
+        <span class="strip-big-num" id="rpmValRight">0</span>
+      </div>
+
+      <div class="strip-col">
+        <span class="strip-tiny-label">BRAKE</span>
+        <div class="strip-bar-h"><div class="strip-bar-fill-h brake-bar" id="brakeFill"></div></div>
+      </div>
+    </div>
+
+    <!-- Giant gear indicator at absolute bottom center -->
+    <div class="gear-hero" id="gearVal">N</div>
+
+    <!-- ============ TOP-LEFT PANEL: G-Force + Tyre Temps ============ -->
+    <div class="float-panel panel-tl">
+      <div class="fp-box">
+        <div class="fp-title">G-FORCE:</div>
+        <div class="fp-big-val" id="gForceVal">0.0G <span class="val-dim">(LAT)</span></div>
+        <div class="fp-inline" style="margin-top:2px;"><span class="val-dim">LON:</span> <span class="val-cyan" id="gLonVal">0.0G</span></div>
+        <div class="g-circle-hud">
+          <div class="g-ring-line"></div>
+          <div class="g-dot-hud" id="gDot"></div>
+        </div>
+      </div>
+
+      <div class="fp-box" style="margin-top:15px;">
+        <div class="fp-title">TYRE TEMP:</div>
+        <div class="tyre-grid-hud">
+          <div class="tyre-cell" id="tyreFL"><span class="tyre-pos">FL</span><span class="temp tyre-val">--°C</span><span class="tyre-slip" id="slipFL">SLIP: --</span></div>
+          <div class="tyre-cell" id="tyreFR"><span class="tyre-pos">FR</span><span class="temp tyre-val">--°C</span><span class="tyre-slip" id="slipFR">SLIP: --</span></div>
+          <div class="tyre-cell" id="tyreRL"><span class="tyre-pos">RL</span><span class="temp tyre-val">--°C</span><span class="tyre-slip" id="slipRL">SLIP: --</span></div>
+          <div class="tyre-cell" id="tyreRR"><span class="tyre-pos">RR</span><span class="temp tyre-val">--°C</span><span class="tyre-slip" id="slipRR">SLIP: --</span></div>
+        </div>
+      </div>
+
+      <div class="fp-box" style="margin-top:10px;">
+        <div class="fp-title">TYRE WEAR:</div>
+        <div class="wear-row">
+          <span class="wear-cell"><span class="val-dim">FL</span> <span class="val-cyan" id="wearFL">--</span></span>
+          <span class="wear-cell"><span class="val-dim">FR</span> <span class="val-cyan" id="wearFR">--</span></span>
+          <span class="wear-cell"><span class="val-dim">RL</span> <span class="val-cyan" id="wearRL">--</span></span>
+          <span class="wear-cell"><span class="val-dim">RR</span> <span class="val-cyan" id="wearRR">--</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ BOTTOM-LEFT PANEL: Track/Circuit ============ -->
+    <div class="float-panel panel-bl">
+      <div class="fp-box">
+        <div class="fp-title-vert">TRACK POSITION: <span class="val-cyan" id="trackPosLabel">LAP --</span></div>
+        <div class="fp-title-vert">SUSPENSION TRAVEL:</div>
+        <div class="susp-vals">
+          <span id="valFL">0%</span> <span id="valFR">0%</span> <span id="valRL">0%</span> <span id="valRR">0%</span>
+        </div>
+      </div>
+      <div class="fp-box" style="margin-top:10px;">
+        <div class="fp-title">WORLD POS:</div>
+        <div class="fp-inline"><span class="val-dim">X:</span> <span class="val-cyan" id="worldX">0.0</span> <span class="val-dim" style="margin-left:8px;">Z:</span> <span class="val-cyan" id="worldZ">0.0</span></div>
+        <div class="fp-title" style="margin-top:6px;">CAR ID: <span class="val-cyan" id="carOrdinal">--</span></div>
+        <div class="fp-title">YAW: <span class="val-cyan" id="yawVal">0.0°</span></div>
+      </div>
+    </div>
+
+    <!-- ============ TOP-RIGHT PANEL: Engine Status + Fuel ============ -->
+    <div class="float-panel panel-tr">
+      <div class="fp-box">
+        <div class="fp-title">TURBO BOOST:</div>
+        <div class="fp-inline"><span class="val-cyan" id="boostVal">0.0 PSI</span></div>
+      </div>
+      <div class="fp-box" style="margin-top:10px;">
+        <div class="fp-title">FUEL: <span class="val-cyan" id="fuelVal">0%</span></div>
+        <div class="fp-title">POWER: <span class="val-cyan" id="powerVal">0 HP</span></div>
+        <div class="fp-title">MAX RPM: <span class="val-cyan" id="maxRpmVal">0</span></div>
+      </div>
+    </div>
+
+    <!-- ============ RIGHT-CENTER PANEL: Sector/Lap Times ============ -->
+    <div class="float-panel panel-rc">
+      <div class="fp-box">
+        <div class="fp-title">SECTOR TIMES:</div>
+        <div class="sector-line">BEST <span class="val-gold" id="bestLapVal">--:--.---</span></div>
+        <div class="sector-line">LAST <span class="val-cyan" id="lastLapVal">--:--.---</span></div>
+      </div>
+    </div>
+
+    <!-- ============ BOTTOM-RIGHT: LAP TIME PB ============ -->
+    <div class="float-panel panel-br">
+      <div class="fp-box">
+        <div class="fp-title">LAP TIME:</div>
+        <div class="fp-big-val val-gold" id="currentLapVal">--:--.---</div>
+      </div>
+      <div class="fp-box" style="margin-top:10px;">
+        <div class="fp-title">RACE STATUS: <span class="val-cyan" id="raceStatusVal">STANDBY</span></div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer-note" id="connStatus">Waiting for Forza telemetry...</footer>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <audio id="aiAudio" style="display:none;"></audio>
+  <script src="{{ url_for('static', filename='physics.js') }}"></script>
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

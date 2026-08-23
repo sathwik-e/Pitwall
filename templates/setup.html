@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pitwall Setup</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000000;
+      --panel: rgba(10, 10, 15, 0.65);
+      --panel-line: rgba(255, 255, 255, 0.08);
+      --accent: #0ea5e9;
+      --text: #ffffff;
+      --text-dim: #6c757d;
+      --radius: 14px;
+    }
+    body {
+      background: radial-gradient(circle at 50% -20%, #0f172a 0%, #000000 80%);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .setup-container {
+      background: var(--panel);
+      border: 1px solid var(--panel-line);
+      border-radius: var(--radius);
+      padding: 40px;
+      width: 500px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    h1 {
+      font-family: 'Rajdhani', sans-serif;
+      margin: 0 0 10px 0;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    p {
+      color: var(--text-dim);
+      font-size: 14px;
+      margin-bottom: 30px;
+      line-height: 1.5;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid var(--panel-line);
+      border-radius: 6px;
+      padding: 12px;
+      color: var(--text);
+      font-family: monospace;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, input[type="password"]:focus {
+      border-color: var(--accent);
+    }
+    .btn {
+      width: 100%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 14px;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #38bdf8;
+    }
+    .optional-badge {
+      background: rgba(255,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="setup-container">
+    <h1>Pitwall Initialization</h1>
+    <p>Welcome to Pitwall Live Telemetry. To power your AI Race Engineer, please provide the required API credentials.</p>
+    
+    <form action="/setup" method="POST">
+      <div class="form-group">
+        <label>GROQ API KEY (Required for LLM & Whisper)</label>
+        <input type="password" name="groq_key" placeholder="gsk_..." value="{{ config.get('groq_key', '') }}" required>
+      </div>
+
+      <div class="form-group">
+        <label>PREFERRED TTS ENGINE</label>
+        <select name="tts_engine" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--panel-line); border-radius: 6px; padding: 12px; color: var(--text); font-family: monospace; font-size: 14px; outline: none;">
+          <option value="edge" {% if config.get('tts_engine') == 'edge' %}selected{% endif %}>Edge-TTS (Default Free)</option>
+          <option value="gtts" {% if config.get('tts_engine') == 'gtts' %}selected{% endif %}>Google TTS (Robotic Free)</option>
+          <option value="cartesia" {% if config.get('tts_engine') == 'cartesia' %}selected{% endif %}>Cartesia AI</option>
+          <option value="elevenlabs" {% if config.get('tts_engine') == 'elevenlabs' %}selected{% endif %}>ElevenLabs</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>CARTESIA API KEY <span class="optional-badge">OPTIONAL</span></label>
+        <input type="password" name="cartesia_key" placeholder="For ultra-low latency TTS" value="{{ config.get('cartesia_key', '') }}">
+      </div>
+
+      <div class="form-group">
+        <label>CARTESIA VOICE ID</label>
+        <input type="text" name="cartesia_voice" placeholder="e.g. 694f9389-aac1-45b6-b726-9d9369183238" value="{{ config.get('cartesia_voice', '') }}">
+      </div>
+      
+      <div class="form-group">
+        <label>ELEVENLABS API KEY <span class="optional-badge">OPTIONAL</span></label>
+        <input type="password" name="elevenlabs_key" placeholder="For premium TTS fallback" value="{{ config.get('elevenlabs_key', '') }}">
+      </div>
+
+      <div class="form-group">
+        <label>ELEVENLABS VOICE ID</label>
+        <input type="text" name="elevenlabs_voice" placeholder="e.g. pNInz6obpgDQGcFmaJcg" value="{{ config.get('elevenlabs_voice', '') }}">
+      </div>
+
+      <div class="form-group">
+        <label>FORZA TELEMETRY UDP PORT</label>
+        <input type="text" name="udp_port" placeholder="Default is 5300" value="{{ config.get('udp_port', '5300') }}">
+        <p style="font-size: 11px; color: var(--text-dim); margin-top: 5px;">Set your Forza <b>Data Out IP Address</b> to: <code>127.0.0.1</code> (or <code>{{ local_ip }}</code> if on Xbox App)</p>
+      </div>
+
+      <button type="submit" class="btn">INITIALIZE SYSTEM</button>
+      <a href="/skip_setup" class="btn" style="display: block; text-align: center; background: rgba(255,255,255,0.1); color: var(--text-dim); text-decoration: none; margin-top: 10px;">SKIP SETUP</a>
+    </form>
+    
+    <div style="margin-top: 30px; text-align: center; border-top: 1px solid var(--panel-line); padding-top: 15px;">
+        <p style="font-size: 11px; color: var(--text-dim); font-family: monospace;">
+            Developed by <strong>Sathwik Elaprolu</strong> &copy; 2026<br>
+        </p>
+    </div>
+  </div>
+
+</body>
+</html>
