@@ -47,9 +47,10 @@ cd Pitwall
 Double-click `build.bat`. This script will automatically install all dependencies and compile the app into a standalone `.exe` that runs silently without a terminal. 
 
 ### Application Configuration
-1. Launch the compiled `Pitwall_Live_Telemetry.exe`.
-2. Click the **⚙️ Gear Icon** in the top right of the dashboard.
-3. Enter your **Groq API Key** and save.
+1. Launch the compiled `Pitwall_Live_Telemetry.exe` (this will automatically open the dashboard).
+2. *If you are running from source code, or want to open it in a standard web browser, go to `http://localhost:6900`.*
+3. Click the **⚙️ Gear Icon** in the top right of the dashboard.
+4. Enter your **Groq API Key** and save.
 
 ### 4. Forza Game Configuration
 You must tell Forza to broadcast telemetry data to Pitwall.

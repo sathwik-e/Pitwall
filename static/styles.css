@@ -514,7 +514,11 @@ input:checked + .slider:before { transform: translateX(18px); }
 
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 900px) {
-  .hud-ring-container { width: 80vw; height: 80vw; }
-  .float-panel { display: none; }
-  .bottom-strip { flex-wrap: wrap; }
+  body { overflow-y: auto; overflow-x: hidden; }
+  .hud-viewport { height: auto; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding-bottom: 80px; padding-top: 60px; }
+  .hud-ring-container { position: relative; top: 0; left: 0; transform: none; width: min(350px, 90vw); height: min(350px, 90vw); margin: 20px 0; }
+  .float-panel { position: relative; top: 0; left: 0; right: 0; bottom: 0; transform: none; width: 95%; max-width: 400px; margin-bottom: 15px; display: block; }
+  .bottom-strip { position: relative; bottom: 0; left: 0; transform: none; width: 95%; flex-wrap: wrap; margin-bottom: 20px; gap: 10px; justify-content: center; }
+  .gear-hero { position: absolute; top: calc(60px + min(350px, 90vw) - 30px); left: 50%; transform: translate(-50%, -50%); font-size: 80px; }
+  .bg-pos-watermark { font-size: 40vw; top: 30%; }
 }
