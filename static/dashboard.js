@@ -719,12 +719,94 @@ function drawVectorCar() {
     // ── BRAKE LIGHTS (Lightweight — no shadowBlur) ──
     if (currentTelemetry && (currentTelemetry.brake_pct > 10 || isCrashed)) {
         ctx.fillStyle = '#ff3333';
-        ctx.globalAlpha = 0.9;
+        ctx.globalAlpha = Math.min(0.4 + (currentTelemetry.brake_pct / 100) * 0.6, 1.0);
         ctx.fillRect(-16, 53, 10, 2);
         ctx.fillRect(6, 53, 10, 2);
+        // Brake glow halo (intensity scales with brake pressure)
+        let brakeGlow = (currentTelemetry.brake_pct / 100) * 0.15;
+        ctx.fillStyle = `rgba(255, 51, 51, ${brakeGlow})`;
+        ctx.beginPath();
+        ctx.ellipse(0, 56, 22, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
         ctx.globalAlpha = 1.0;
     }
 
+    // ── EXHAUST FLAME PARTICLES (visible when throttle > 60% and speed > 20) ──
+    if (currentTelemetry && currentTelemetry.throttle_pct > 60 && speed > 20) {
+        let intensity = (currentTelemetry.throttle_pct - 60) / 40; // 0 to 1
+        let flameCount = Math.floor(intensity * 4) + 1;
+        for (let i = 0; i < flameCount; i++) {
+            let fx = (Math.random() - 0.5) * 4;
+            let fy = 58 + Math.random() * (intensity * 12);
+            let fSize = 1 + Math.random() * 2 * intensity;
+            // Color shifts from cyan → orange → red at higher throttle
+            if (currentTelemetry.throttle_pct > 95) {
+                ctx.fillStyle = `rgba(255, ${Math.floor(100 + Math.random()*80)}, 0, ${0.5 + Math.random()*0.4})`;
+            } else {
+                ctx.fillStyle = `rgba(0, 243, 255, ${0.3 + Math.random()*0.3})`;
+            }
+            ctx.beginPath();
+            ctx.arc(-8 + fx, fy, fSize, 0, Math.PI * 2);
+            ctx.arc(8 + fx, fy, fSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // ── TIRE SMOKE (visible when drifting) ──
+    if (pState.driftState !== 'NONE') {
+        let smokeAlpha = pState.driftState === 'SPUN_OUT' ? 0.25 : 0.12;
+        let smokeCount = pState.driftState === 'SPUN_OUT' ? 8 : 4;
+        for (let i = 0; i < smokeCount; i++) {
+            let sx = -24 + (Math.random() - 0.5) * 10;
+            let sy = 38 + Math.random() * 20;
+            let sSize = 3 + Math.random() * 6;
+            ctx.fillStyle = `rgba(180, 180, 200, ${smokeAlpha * (1 - i/smokeCount)})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, sSize, 0, Math.PI * 2);
+            ctx.fill();
+            // Mirror to right rear
+            ctx.beginPath();
+            ctx.arc(-sx, sy, sSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // ── HEADLIGHT GLOW (pulses with throttle) ──
+    if (currentTelemetry && speed > 5) {
+        let hlGlow = 0.05 + (currentTelemetry.throttle_pct / 100) * 0.1;
+        ctx.fillStyle = `rgba(0, 243, 255, ${hlGlow})`;
+        ctx.beginPath();
+        ctx.ellipse(-8, -72, 6, 14, 0, Math.PI * 1.3, Math.PI * 1.7);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(8, -72, 6, 14, 0, Math.PI * 1.3, Math.PI * 1.7);
+        ctx.fill();
+    }
+
+    // ── G-FORCE VECTOR (tiny arrow showing net G direction on the car) ──
+    if (currentTelemetry && speed > 30) {
+        let gLatDraw = Math.max(-2, Math.min(2, currentTelemetry.g_lat || 0));
+        let gLonDraw = Math.max(-2, Math.min(2, currentTelemetry.g_lon || 0));
+        let gMag = Math.sqrt(gLatDraw * gLatDraw + gLonDraw * gLonDraw);
+        if (gMag > 0.3) {
+            let arrowLen = Math.min(gMag * 12, 25);
+            let ax = gLatDraw / gMag * arrowLen;
+            let ay = -gLonDraw / gMag * arrowLen;
+            ctx.strokeStyle = gMag > 1.5 ? '#ff3366' : '#00f3ff';
+            ctx.globalAlpha = 0.5;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(ax, ay);
+            // Arrowhead
+            let angle = Math.atan2(ay, ax);
+            ctx.lineTo(ax - 4 * Math.cos(angle - 0.4), ay - 4 * Math.sin(angle - 0.4));
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(ax - 4 * Math.cos(angle + 0.4), ay - 4 * Math.sin(angle + 0.4));
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        }
+    }
 
     // ── MOTION STREAKS (when car is moving fast) ──
     if (speed > 80) {
