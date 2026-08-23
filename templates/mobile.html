@@ -142,6 +142,17 @@
         }
     });
 
+    // Fullscreen API
+    function requestFullScreen() {
+        if (!document.fullscreenElement) {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(e => {});
+            } else if (document.documentElement.webkitRequestFullscreen) { /* Safari */
+                document.documentElement.webkitRequestFullscreen();
+            }
+        }
+    }
+
     // Check orientation
     function checkOrientation() {
       if (window.innerHeight > window.innerWidth) {
@@ -150,8 +161,17 @@
       } else {
         document.getElementById('portraitWarning').style.display = 'none';
         document.getElementById('mobileHud').style.display = 'flex';
+        requestFullScreen();
       }
     }
+    
+    // Browsers require a user gesture to enter fullscreen, so bind it to any touch/click
+    document.body.addEventListener('click', () => {
+        if (window.innerWidth > window.innerHeight) {
+            requestFullScreen();
+        }
+    });
+
     window.addEventListener('resize', checkOrientation);
     checkOrientation();
   </script>
