@@ -398,7 +398,9 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         last_car_ordinal = car_ordinal
 
     decel = (speed_drop / 3.6) / dt
-    is_crash = decel > 58.8 and not race_finished
+    # If braking hard, require a massive 10G+ decel (98 m/s^2) to count as a crash (e.g. hitting a wall while braking)
+    # If not braking hard, a 6G+ decel (58.8 m/s^2) is definitely a crash.
+    is_crash = (decel > 98.0 or (decel > 58.8 and brake < 50)) and not race_finished
     if is_crash:
         was_crashed = True
         last_crash_time = now
