@@ -110,8 +110,8 @@ def generate_ai_commentary(prompt, interrupt=False, emotion='neutral'):
             socketio.emit('stop_audio')
             
         system_prompt = (
-            "You are F.R.I.D.A.Y., an elite race engineer. Follow these rules STRICTLY:\n"
-            "1. You are F.R.I.D.A.Y. Do not refer to F.R.I.D.A.Y. in the third person. You are talking directly to me.\n"
+            "You are FRIDAY, an elite race engineer. Follow these rules STRICTLY:\n"
+            "1. You are FRIDAY. Do not refer to FRIDAY in the third person. You are talking directly to me.\n"
             "2. Always call me 'Boss'.\n"
             "3. Respond with exactly ONE short sentence. Maximum 12 words.\n"
             "4. Do not repeat telemetry numbers (like 0 kmh or gear 1) back to me.\n"
@@ -275,7 +275,7 @@ def handle_ai_test():
     if APP_CONFIG.get('groq_key', '') == "":
         prompt = "System test. Please say: AI Strategy is offline. Please configure your API key in the settings."
     else:
-        prompt = "System test. Say exactly: F.R.I.D.A.Y. systems online. Telemetry monitoring is active and ready, Boss."
+        prompt = "System test. Say exactly: FRIDAY systems online. Telemetry monitoring is active and ready, Boss."
     threading.Thread(target=generate_ai_commentary, args=(prompt, True, 'neutral'), daemon=True).start()
 
 # AI State Tracking

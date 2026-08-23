@@ -116,8 +116,7 @@
   
   <script>
     // Custom mobile logic for RPM bar since we aren't using the SVG ring
-    const socket_mobile = io();
-    socket_mobile.on('telemetry_update', function(data) {
+    socket.on('telemetry_update', function(data) {
         const rpmBar = document.getElementById('rpmMobileFill');
         if (rpmBar && data.current_rpm && data.max_rpm) {
             let pct = (data.current_rpm / data.max_rpm) * 100;
