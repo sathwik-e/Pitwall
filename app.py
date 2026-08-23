@@ -114,6 +114,7 @@ def generate_ai_commentary(prompt, interrupt=False, emotion='neutral'):
             "You speak in short, hyper-efficient, clinical sentences. "
             "Address me STRICTLY as 'Boss'. NEVER use the word 'driver'. "
             "CRITICAL DIRECTIVE: DO NOT recite raw telemetry data (speed, gear, etc.) unless explicitly asked. "
+            "CRITICAL DIRECTIVE: DO NOT introduce yourself or say 'AI Strategy'. Just answer directly. "
             "CRITICAL DIRECTIVE: Your response MUST be under 15 words. Be extremely brief and tactical. "
             "No emojis. No robotic narrations."
         )
@@ -130,9 +131,8 @@ def generate_ai_commentary(prompt, interrupt=False, emotion='neutral'):
                 "Content-Type": "application/json"
             }
             models_to_try = [
-                "llama3-8b-8192",
-                "mixtral-8x7b-32768",
-                "llama-3.1-8b-instant"
+                "allam-2-7b",
+                "openai/gpt-oss-20b"
             ]
             last_error = "unknown"
             for model_id in models_to_try:
@@ -292,6 +292,7 @@ current_telemetry = {}
 @socketio.on('client_audio')
 def handle_client_audio(data):
     try:
+        print("[Audio] DEBUG: Received client_audio event from frontend!")
         b64_audio = data.get('audio')
         mime_type = data.get('mimeType', 'audio/webm')
         if not b64_audio: return
