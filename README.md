@@ -27,8 +27,8 @@
 
 ### Option 1: Using the Pre-Built Release (Easiest)
 If you just want to run the app on Windows without touching any code:
-1. Go to the [Releases](https://github.com/sathwik-e/Pitwall/releases) page and download `Pitwall.zip`.
-2. Extract the folder and double-click `Pitwall_Live_Telemetry.exe`. 
+1. Go to the [Releases](https://github.com/sathwik-e/Pitwall/releases) page and download `Pitwall_Live_Telemetry.exe`.
+2. Double-click the file to run the app! 
 *(Note: You do **NOT** need Python installed for this!)*
 3. Skip down to **Application Configuration** below.
 
