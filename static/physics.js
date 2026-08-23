@@ -18,18 +18,17 @@ class PhysicsEngine {
         
         // Output states
         this.isCrashed = false;
-        this.crashTimer = null;
         this.driftState = 'NONE'; // 'NONE', 'DRIFTING', 'SPUN_OUT'
         this.hasBlowout = false;
+        
+        // Detailed Damage
+        this.damage_drivetrain = false;
+        this.damage_suspension = false;
+        this.damage_aero = false;
+        this.damage_totaled = false;
     }
 
-    triggerCrashGlitch(durationMs = 7000) {
-        if (!this.isCrashed) {
-            this.isCrashed = true;
-            if (this.crashTimer) clearTimeout(this.crashTimer);
-            this.crashTimer = setTimeout(() => { this.isCrashed = false; }, durationMs);
-        }
-    }
+
 
     update(data) {
         if (data.speed === undefined || data.is_race_on !== 1) return;
@@ -75,51 +74,11 @@ class PhysicsEngine {
             }
         }
         
-        // 2. KINETIC ENERGY CRASH MODEL
-        // KE = 1/2 * m * v^2
-        let currentMass = this.inferredMass > 0 ? this.inferredMass : 1500; // Fallback to 1500kg if unknown
-        let currentKE = 0.5 * currentMass * (speedMps * speedMps); // Joules
-        
-        this.keHistory.push({ time: now, ke: currentKE });
-        this.keHistory = this.keHistory.filter(k => now - k.time <= 400); // 400ms window
-
-        if (this.keHistory.length > 0 && (now - this.lastDamageTime > 5000)) {
-            let maxKeInWindow = Math.max(...this.keHistory.map(k => k.ke));
-            let keDissipated = maxKeInWindow - currentKE; // Joules dissipated in impact
-            
-            let suspBottomed = data.susp && data.susp.some(s => s > 0.95);
-            
-            let severeImpact = false;
-            let criticalImpact = false;
-            
-            // 1 MJ (Megajoule) dissipation is roughly a 1500kg car dropping from 100km/h to 0 instantly.
-            if (keDissipated > 1000000 || (maxKeInWindow > 500000 && currentKE < 5000 && keDissipated > 500000)) {
-                criticalImpact = true;
-            } else if (keDissipated > 400000) {
-                severeImpact = true;
-            } else if (suspBottomed && keDissipated > 200000) {
-                severeImpact = true;
-            } else if (Math.abs(data.g_lat) > 4.0 || Math.abs(gLon) > 4.0) {
-                severeImpact = true;
-            }
-            
-            if (brake > 5 && keDissipated < 600000 && Math.abs(gLon) < 8.0) {
-                // Hard braking, not a wall hit
-                severeImpact = false;
-                criticalImpact = false;
-            }
-            
-            if (criticalImpact) {
-                this.damageSeverity = 2;
-                this.criticalDamageCount++;
-                this.lastDamageTime = now;
-                this.triggerCrashGlitch(7000); // 7 second alert
-            } else if (severeImpact) {
-                this.damageSeverity = Math.min(2, this.damageSeverity + 1);
-                this.lastDamageTime = now;
-                this.triggerCrashGlitch(7000);
-            }
-        }
+        this.isCrashed = data.is_crash || false;
+        this.damage_drivetrain = data.damage_drivetrain || false;
+        this.damage_suspension = data.damage_suspension || false;
+        this.damage_aero = data.damage_aero || false;
+        this.damage_totaled = data.damage_totaled || false;
 
         // 3. DRIFT DETECTION & TIRE BLOWOUT
         this.driftState = 'NONE';
@@ -152,7 +111,6 @@ class PhysicsEngine {
                 let maxFrontTemp = Math.max(data.tyres.FL.temp, data.tyres.FR.temp);
                 if (maxFrontTemp > 120 && Math.abs(gLat) > 0.4 && isCounterSteering) {
                     this.hasBlowout = true;
-                    this.triggerCrashGlitch(7000);
                 }
             }
         }
@@ -161,10 +119,12 @@ class PhysicsEngine {
     getState() {
         return {
             isCrashed: this.isCrashed || this.hasBlowout,
-            damageSeverity: this.hasBlowout ? 2 : this.damageSeverity,
-            criticalDamageCount: this.criticalDamageCount,
-            engineDamage: this.engineDamage,
-            driftState: this.driftState
+            damage_drivetrain: this.damage_drivetrain,
+            damage_suspension: this.damage_suspension,
+            damage_aero: this.damage_aero,
+            damage_totaled: this.damage_totaled,
+            driftState: this.driftState,
+            hasBlowout: this.hasBlowout
         };
     }
 }

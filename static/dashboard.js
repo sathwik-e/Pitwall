@@ -276,14 +276,21 @@ socket.on('telemetry_update', (data) => {
     // 7. RPM Circular Arc Math & Blink
     const rpmFill = document.getElementById('rpmFill');
     if (rpmFill && data.max_rpm) {
-        let maxOffset = 1555;
+        let maxOffset = 2073;
         let rpmPercent = (data.rpm || 0) / Math.max(data.max_rpm, 1);
         let offset = maxOffset - (maxOffset * rpmPercent);
         rpmFill.style.strokeDasharray = maxOffset + ' 2073';
         rpmFill.style.strokeDashoffset = offset;
-        // Blink red when shifting is optimal (e.g. >95% max RPM)
+        
         const rpmReadout = document.getElementById('rpmVal');
-        if (rpmPercent > 0.95) {
+        
+        // Glitch effect on drivetrain damage
+        if (data.damage_drivetrain) {
+            rpmFill.classList.add('rpm-blink');
+            if (rpmReadout) rpmReadout.classList.add('rpm-text-blink');
+            rpmFill.style.strokeDashoffset = offset + (Math.random() - 0.5) * 200; // Erratic bouncing
+        } else if (rpmPercent > 0.95) {
+            // Blink red when shifting is optimal (e.g. >95% max RPM)
             rpmFill.classList.add('rpm-blink');
             if (rpmReadout) rpmReadout.classList.add('rpm-text-blink');
         } else {
@@ -373,33 +380,35 @@ function drawVectorCar() {
     let chassisColor = 'rgba(0, 243, 255, 0.06)';
     let glowColor = 'rgba(0, 243, 255, 0.3)';
     
-    if (pState.damageSeverity >= 2 || pState.criticalDamageCount >= 3 || pState.engineDamage >= 2) {
+    if (pState.damage_totaled) {
         primaryColor = '#ff3366';
         chassisColor = 'rgba(255, 51, 102, 0.08)';
         glowColor = 'rgba(255, 51, 102, 0.3)';
-    } else if (pState.damageSeverity === 1 || pState.engineDamage === 1) {
+    } else if (pState.damage_aero) {
         primaryColor = '#ffb800';
         chassisColor = 'rgba(255, 184, 0, 0.06)';
         glowColor = 'rgba(255, 184, 0, 0.3)';
-    }
-    
-    if (isCrashed && pState.damageSeverity < 1) {
+    } else if (isCrashed) {
         primaryColor = '#ff3366';
         glowColor = 'rgba(255, 51, 102, 0.3)';
     }
 
     // Damage indicator text
-    if (isCrashed) {
-        if (pState.damageSeverity >= 2) {
-            crashText.innerText = "CATASTROPHIC DAMAGE: CAR IS TOTALED";
-            crashText.style.color = '#ff3366';
-        } else if (pState.damageSeverity > 0) {
-            crashText.innerText = "YOU'RE DAMAGING THE CAR, BE CAREFUL";
-            crashText.style.color = '#ffcc00';
-        } else {
-            crashText.innerText = "SPUN OUT! REGAIN CONTROL";
-            crashText.style.color = '#ff3366';
-        }
+    if (pState.damage_totaled) {
+        crashText.innerText = "CATASTROPHIC DAMAGE: CAR IS TOTALED";
+        crashText.style.color = '#ff3366';
+        crashText.style.visibility = 'visible';
+    } else if (pState.damage_drivetrain || pState.damage_suspension || pState.damage_aero) {
+        let issues = [];
+        if (pState.damage_aero) issues.push("AERO");
+        if (pState.damage_suspension) issues.push("SUSPENSION");
+        if (pState.damage_drivetrain) issues.push("DRIVETRAIN");
+        crashText.innerText = "CRITICAL DAMAGE: " + issues.join(" | ");
+        crashText.style.color = '#ffcc00';
+        crashText.style.visibility = 'visible';
+    } else if (isCrashed) {
+        crashText.innerText = "COLLISION DETECTED";
+        crashText.style.color = '#ff3366';
         crashText.style.visibility = 'visible';
     } else if (pState.driftState !== 'NONE') {
         crashText.innerText = "DRIFTING";
@@ -633,7 +642,7 @@ function drawVectorCar() {
         
         const r = 2;
         ctx.fillStyle = 'rgba(10, 12, 15, 0.95)';
-        ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
+        ctx.strokeStyle = pState.damage_suspension ? '#ff3366' : 'rgba(0, 243, 255, 0.4)';
         ctx.lineWidth = 0.5;
         ctx.beginPath();
         ctx.moveTo(-w/2 + r, -h/2);
@@ -657,14 +666,14 @@ function drawVectorCar() {
 
         // Inner Rim
         ctx.fillStyle = 'rgba(30, 35, 40, 0.8)';
-        ctx.strokeStyle = 'rgba(0, 243, 255, 0.2)';
+        ctx.strokeStyle = pState.damage_suspension ? '#ff3366' : 'rgba(0, 243, 255, 0.2)';
         ctx.beginPath();
         ctx.rect(-w/2 + 2, -h/2 + 3, w - 4, h - 6);
         ctx.fill();
         ctx.stroke();
         
         // Rolling tread lines
-        ctx.strokeStyle = primaryColor;
+        ctx.strokeStyle = pState.damage_suspension ? '#ff3366' : primaryColor;
         ctx.globalAlpha = 0.6;
         ctx.lineWidth = 0.5;
         ctx.beginPath();

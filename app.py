@@ -351,12 +351,18 @@ is_accelerating = False
 best_0_100_time = 999.0
 
 last_car_ordinal = 0
+global_is_drivetrain_damaged = False
+global_is_suspension_damaged = False
+global_is_aero_damaged = False
+global_is_totaled = False
+global_is_crash = False
 
 def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, throttle, rpm, is_race_on, gear, max_rpm, steer, is_jumping, car_ordinal):
     global last_ai_time, last_speed, last_pos, was_crashed, last_yaw, last_time, last_joke_time, last_race_pos, last_pos_time
     global rev_limit_start_time, bogging_start_time, bad_launch_start_time, last_rev_limit_joke, last_bogging_joke, last_gear
     global baseline_max_speed, baseline_max_g_lat, last_crash_time, damage_inferred, last_damage_report_time
     global accel_start_time, is_accelerating, best_0_100_time, last_car_ordinal
+    global global_is_drivetrain_damaged, global_is_suspension_damaged, global_is_aero_damaged, global_is_totaled, global_is_crash
     
     now = time.time()
     dt = now - last_time
@@ -393,6 +399,11 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     if car_ordinal != last_car_ordinal and last_car_ordinal != 0 and car_ordinal != 0:
         if speed < 10: # Only trigger when stationary/in garage
             car_swapped = True
+            global_is_drivetrain_damaged = False
+            global_is_suspension_damaged = False
+            global_is_aero_damaged = False
+            global_is_totaled = False
+            damage_inferred = False
     if car_ordinal != 0:
         last_car_ordinal = car_ordinal
 
@@ -416,9 +427,8 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     # ----------------------------------------------------
     # INFERRED DAMAGE PIPELINE
     # ----------------------------------------------------
-    is_drivetrain_damaged = False
-    is_suspension_damaged = False
-    is_aero_damaged = False
+    # INFERRED DAMAGE PIPELINE
+    # ----------------------------------------------------
     
     if not was_crashed and not damage_inferred:
         if speed > baseline_max_speed: baseline_max_speed = speed
@@ -436,7 +446,7 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         if was_crashed and best_0_100_time < 900:
             if time_taken > (best_0_100_time * 1.3): # 30% slower 0-100
                 if not damage_inferred or (now - last_damage_report_time > 120):
-                    is_drivetrain_damaged = True
+                    global_is_drivetrain_damaged = True
                     damage_inferred = True
                     last_damage_report_time = now
                     
@@ -447,24 +457,25 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     if was_crashed and speed > 60 and throttle > 50:
         if abs(steer) < 5 and abs(g_lat) > 0.4:
             if not damage_inferred or (now - last_damage_report_time > 120):
-                is_suspension_damaged = True
+                global_is_suspension_damaged = True
                 damage_inferred = True
                 last_damage_report_time = now
                 
-    is_totaled = False
     if was_crashed and (now - last_crash_time > 15) and baseline_max_speed > 100:
         if throttle > 90 and gear >= 3 and speed > 50:
             # Check if speed is severely crippled (lost > 40% of baseline top speed)
             if speed < (baseline_max_speed * 0.60):
                 if not damage_inferred or (now - last_damage_report_time > 120):
-                    is_totaled = True
+                    global_is_totaled = True
                     damage_inferred = True
                     last_damage_report_time = now
             elif speed < (baseline_max_speed * 0.85):
                 if not damage_inferred or (now - last_damage_report_time > 120):
-                    is_aero_damaged = True
+                    global_is_aero_damaged = True
                     damage_inferred = True
                     last_damage_report_time = now
+
+    global_is_crash = is_crash
 
     is_ramming = speed_drop > 20 and speed_drop <= 50 and brake < 10 and speed > 30 and not race_finished
     is_spin = yaw_rate > 3.0 and speed > 40 and not is_crash and not race_finished
@@ -508,7 +519,7 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
             bad_launch_start_time = 0
 
     # SMART COOLDOWN TIERS
-    is_critical = car_swapped or is_crash or is_ramming or is_jumping or is_drivetrain_damaged or is_suspension_damaged or is_aero_damaged or is_totaled
+    is_critical = car_swapped or is_crash or is_ramming or is_jumping or global_is_drivetrain_damaged or global_is_suspension_damaged or global_is_aero_damaged or global_is_totaled
     is_warning = is_spin or is_bouncing_limiter or is_bogging or is_money_shift or is_bad_launch
     is_chatter = is_drifting or is_donut or is_turning
 
@@ -528,16 +539,16 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     emotion = 'neutral'
     
     # Priority logic (if multiple things happened, only report the worst one)
-    if is_totaled:
+    if global_is_totaled:
         prompt = "The car is completely totaled and pace is severely low. Suggest restarting the race or switching cars."
         emotion = 'shocked'
-    elif is_drivetrain_damaged:
+    elif global_is_drivetrain_damaged:
         prompt = f"The car's 0-100 time was {time_taken:.1f}s, normally it's {best_0_100_time:.1f}s. Instruct the Boss to box due to severe drivetrain damage."
         emotion = 'angry'
-    elif is_suspension_damaged:
+    elif global_is_suspension_damaged:
         prompt = "The Boss is steering straight but the car is pulling heavily. The suspension is completely destroyed! Tell them to box."
         emotion = 'shocked'
-    elif is_aero_damaged:
+    elif global_is_aero_damaged:
         prompt = "The car took heavy damage, top speed is significantly down. Instruct the Boss to box for repairs immediately."
         emotion = 'angry'
     elif car_swapped:
@@ -717,7 +728,12 @@ def telemetry_loop():
                     'steer': steer if 'steer' in locals() else 0,
                     'car_ordinal': car_ordinal if 'car_ordinal' in locals() else 0,
                     'susp': [susp_fl, susp_fr, susp_rl, susp_rr],
-                    'is_race_on': is_race_on
+                    'is_race_on': is_race_on,
+                    'damage_drivetrain': global_is_drivetrain_damaged,
+                    'damage_suspension': global_is_suspension_damaged,
+                    'damage_aero': global_is_aero_damaged,
+                    'damage_totaled': global_is_totaled,
+                    'is_crash': global_is_crash
                 }
             
                 global current_telemetry
@@ -780,7 +796,7 @@ def setup():
                 except:
                     pass
                 sock = None
-                
+        
         return redirect(url_for('index'))
     return render_template('setup.html', local_ip=get_local_ip(), config=APP_CONFIG)
 
