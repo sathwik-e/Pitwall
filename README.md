@@ -20,11 +20,41 @@
 
 ## Setup Instructions
 
-1. Install Python 3.10+
-2. Run `pip install -r requirements.txt`
-3. Add your Groq API key in the dashboard settings menu (`/setup`).
-4. **Forza Settings**: Go to HUD & Gameplay > Data Out. Set to `ON`, IP to `127.0.0.1`, and Port to `5300`.
-5. Run `python app.py` or double-click the compiled `Pitwall_Live_Telemetry.exe`.
+### 1. Prerequisites
+- Install **Python 3.10+**. Ensure you check the box to "Add Python to PATH" during installation.
+- Get a free API Key from [Groq](https://console.groq.com/keys) (required for the F.R.I.D.A.Y. AI).
+
+### 2. Installation
+Clone this repository to your local machine:
+```bash
+git clone https://github.com/sathwik-e/Pitwall.git
+cd Pitwall
+```
+Install the required dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Running the App
+Start the telemetry server and UI:
+```bash
+python3 app.py
+```
+*(Alternatively, Windows users can double-click `build.bat` to compile everything into a standalone `Pitwall_Live_Telemetry.exe` that runs without a terminal).*
+
+### 4. Application Configuration
+1. Once the app launches, click the **⚙️ Gear Icon** in the top right of the dashboard.
+2. Enter your **Groq API Key** and save.
+
+### 5. Forza Game Configuration
+You must tell Forza to broadcast telemetry data to Pitwall.
+1. Launch Forza Horizon 4, 5, or Forza Motorsport.
+2. Go to **Settings -> HUD and Gameplay**.
+3. Scroll down to **Data Out** and turn it **ON**.
+4. Set **Data Out IP Address** to `127.0.0.1`.
+5. Set **Data Out IP Port** to `5300`.
+
+*As soon as you unpause the game and start driving, the dashboard will come to life!*
 
 ---
 *Built for absolute performance and immersion on the virtual track.*
