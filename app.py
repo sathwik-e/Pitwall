@@ -551,17 +551,11 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
 
     # SMART COOLDOWN TIERS
     dt_ai = now - last_ai_time
-    is_critical = car_swapped or is_crash or is_ramming or (jump_distance > 5.0) or global_is_drivetrain_damaged or global_is_suspension_damaged or global_is_aero_damaged or global_is_totaled
-    is_warning = is_spin or is_bouncing_limiter or is_bogging or is_money_shift or is_bad_launch
-    is_chatter = is_drifting or is_donut or is_turning
-
-    cooldown_passed = False
     
-    if is_critical and dt_ai > 5:
+    cooldown_passed = False
+    if car_swapped:
         cooldown_passed = True
-    elif is_warning and dt_ai > 15:
-        cooldown_passed = True
-    elif is_chatter and dt_ai > 30:
+    elif dt_ai >= 30:
         cooldown_passed = True
 
     if not cooldown_passed and not race_finished:
