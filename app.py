@@ -372,12 +372,16 @@ global_is_aero_damaged = False
 global_is_totaled = False
 global_is_crash = False
 
+jump_start_time = 0
+jump_speed_mps = 0
+
 def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, throttle, rpm, is_race_on, gear, max_rpm, steer, is_jumping, car_ordinal):
     global last_ai_time, last_speed, last_pos, was_crashed, last_yaw, last_time, last_joke_time, last_race_pos, last_pos_time
     global rev_limit_start_time, bogging_start_time, bad_launch_start_time, last_rev_limit_joke, last_bogging_joke, last_gear
     global baseline_max_speed, baseline_max_g_lat, last_crash_time, damage_inferred, last_damage_report_time
     global accel_start_time, is_accelerating, best_0_100_time, last_car_ordinal
     global global_is_drivetrain_damaged, global_is_suspension_damaged, global_is_aero_damaged, global_is_totaled, global_is_crash
+    global jump_start_time, jump_speed_mps
     
     now = time.time()
     dt = now - last_time
@@ -388,10 +392,26 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
         yaw_rate = 0 
         
     speed_drop = last_speed - speed # calculate before updating last_speed
+    last_speed_copy = last_speed
     last_speed = speed # update immediately to prevent delta accumulation across AI cooldowns
     last_time = now
     last_yaw = yaw
     
+    # ----------------------------------------------------
+    # JUMP DISTANCE CALCULATION
+    # ----------------------------------------------------
+    jump_distance = 0
+    jump_duration = 0
+    if is_jumping:
+        if jump_start_time == 0:
+            jump_start_time = now
+            jump_speed_mps = speed / 3.6 # speed at takeoff in m/s
+    elif jump_start_time > 0:
+        jump_duration = now - jump_start_time
+        jump_start_time = 0
+        if jump_duration > 0.5: # only count real jumps
+            jump_distance = jump_speed_mps * jump_duration
+            
     # ----------------------------------------------------
     # HIGH PRIORITY INTERRUPTS (Ignores all cooldowns)
     # ----------------------------------------------------
@@ -425,15 +445,12 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     # ----------------------------------------------------
     # MULTI-AXIS COLLISION DETECTION
     # ----------------------------------------------------
-    # A crash is an extreme spike in G-forces that cannot be achieved through tires alone.
-    # Forza physics can spike to 10-15G just from hitting curbs or bottoming out the suspension.
-    # A true wall impact that causes damage will spike to 20G-50G.
-    is_crash_lon = g_lon < -20.0 # Hitting a solid wall head-on
-    is_crash_lat = abs(g_lat) > 20.0 # Sideswiping a solid wall
+    # A crash is an extreme spike in G-forces or a sudden drop in speed.
+    is_crash_lon = g_lon < -10.0 # Hitting a solid wall head-on
+    is_crash_lat = abs(g_lat) > 10.0 # Sideswiping a solid wall
     
     # Minimum speed gate: ignore G-force spikes below 30 km/h.
-    # Low-speed bumps in Forza can spike G-forces but cause zero damage.
-    is_crash = (is_crash_lon or is_crash_lat) and speed > 30 and not race_finished
+    is_crash = (is_crash_lon or is_crash_lat or speed_drop > 25) and last_speed_copy > 30 and not race_finished
     if is_crash:
         was_crashed = True
         last_crash_time = now
@@ -533,17 +550,21 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
             bad_launch_start_time = 0
 
     # SMART COOLDOWN TIERS
-    is_critical = car_swapped or is_crash or is_ramming or is_jumping or global_is_drivetrain_damaged or global_is_suspension_damaged or global_is_aero_damaged or global_is_totaled
+    dt_ai = now - last_ai_time
+    is_critical = car_swapped or is_crash or is_ramming or (jump_distance > 5.0) or global_is_drivetrain_damaged or global_is_suspension_damaged or global_is_aero_damaged or global_is_totaled
     is_warning = is_spin or is_bouncing_limiter or is_bogging or is_money_shift or is_bad_launch
     is_chatter = is_drifting or is_donut or is_turning
 
     cooldown_passed = False
-    if is_critical and (now - last_ai_time >= 30): cooldown_passed = True
-    elif is_warning and (now - last_ai_time >= 60): cooldown_passed = True
-    elif is_chatter and (now - last_ai_time >= 120): cooldown_passed = True
-    elif not (is_critical or is_warning or is_chatter) and (now - last_ai_time >= 90): cooldown_passed = True
     
-    if not cooldown_passed:
+    if is_critical and dt_ai > 5:
+        cooldown_passed = True
+    elif is_warning and dt_ai > 15:
+        cooldown_passed = True
+    elif is_chatter and dt_ai > 30:
+        cooldown_passed = True
+
+    if not cooldown_passed and not race_finished:
         last_speed = speed
         if pos > 0: last_pos = pos
         if gear > 0: last_gear = gear
@@ -568,8 +589,8 @@ def check_ai_trigger(speed, pos, lap, g_lat, brake, g_lon, yaw, race_finished, t
     elif car_swapped:
         prompt = "I just switched you into a new car. Hype me up for the next session."
         emotion = 'happy'
-    elif is_jumping:
-        prompt = f"Car is airborne at {speed} km/h! React with excitement about the massive jump."
+    elif jump_distance > 5.0:
+        prompt = f"Car just landed a massive jump! We were airborne for {jump_duration:.1f}s and cleared approximately {jump_distance:.1f} meters based on takeoff speed! React with absolute hype."
         emotion = 'happy'
     elif is_money_shift:
         prompt = f"Money shift ({last_gear} to {gear}). Warn about critical engine stress."
